@@ -35,6 +35,7 @@
     <arg name="theta" value="$(arg init_theta)"/> 
   </include>
 
+  <!-- Slave Robot -->
   <include file="$(find mobile_robot_sim)/launch/includes/slave_rplidar.launch.xml">
     <arg name="base" value="$(arg base)"/>
     <arg name="stacks" value="$(arg stacks)"/>
