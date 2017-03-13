@@ -11,6 +11,4 @@
 
   <kobuki/>
   <stack_hexagons                 parent="base_link"/>
-  <sensor_asus_xtion_pro          parent="base_link"/>
-  <sensor_rplidar                 parent="base_link"/>
 </robot>

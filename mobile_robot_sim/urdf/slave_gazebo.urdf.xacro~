@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<robot name="slave_gazebo" xmlns:xacro="http://ros.org/wiki/xacro">
+<robot name="turtlebot_gazebo" xmlns:xacro="http://ros.org/wiki/xacro">
   <!-- Microsoft Kinect / ASUS Xtion PRO Live for simulation -->
   <xacro:macro name="turtlebot_sim_3dsensor">
     <gazebo reference="camera_link">  

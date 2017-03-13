@@ -1,0 +1,5 @@
+<!---->
+<launch>
+  <include file="$(find swarm_lidar)/launch/robot_mapping.launch" />
+  <include file="$(find robot_mapping)/launch/robot_mapping.launch" />
+</launch>
