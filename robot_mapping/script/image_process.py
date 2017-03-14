@@ -193,12 +193,18 @@ class Listener():
         if found[0] >500000:
             (startX, startY) = ((maxLoc[0] * r), (maxLoc[1] * r))
             (endX, endY) = (((maxLoc[0] + self.tW) * r), ((maxLoc[1] + self.tH) * r))
-            self.cen_X = int((endX + startX)/2)
-            self.cen_Y = int(startY-((endY-startY)/2))
-            
+            tmp_X = int((endX + startX)/2)
+            tmp_Y = int(startY-((endY-startY)/2))
+            dist_tmp = 1000; #임의값
             #queue 최단거리 계산 
-            #for index in xrange(20):  
-                
+            for (x,y) in self.pts:
+                dist = math.sqrt(pow(tmp_X-x,2)+pow(tmp_Y-y,2))
+                if dist < dist_tmp:
+                    self.cen_X = x
+                    self.cen_Y = y
+                    dist_tmp = dist
+            
+            self.pts.clear()
             #Slave 로봇 위치 정보 리턴 및 퍼블리시
             #cv2.circle(dst_image, (self.cen_X, self.cen_Y+5), 1, (0,255,0), 18,-1)                   #원 출력
             cv2.rectangle(dst_image, (int(startX), int(startY)), (int(endX), int(endY)), (0, 255, 0), 1)    #사각형 출력  
@@ -212,11 +218,11 @@ class Listener():
                         i=-1
                         
             srange = "%.2f"%(ranges[self.cen_X/2+i]+0.1)+'m'
-            text = "Id:%d"%slave_id, self.cen_X/2, srange
+            text = "Id:%d"%slave_id, self.cen_X/2, "Y :%d"%self.cen_Y, srange
             cv2.putText(dst_image, str(text), (self.cen_X,self.cen_Y), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
             
             position.m_ang = self.yaw
-            position.s1_dist = ranges[self.cen_X/2+i] 
+            position.s1_dist = ranges[self.cen_X/2+i]+0.1 
             position.s1_ang = (self.cen_X/2 + position.m_ang) -180
         
         self.pub.publish(position)          # < r_LOS, phi_LOS, theta > 퍼블리시 
