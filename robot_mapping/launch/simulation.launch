@@ -1,0 +1,7 @@
+<!---->
+<launch>
+  <node name="image_process"	pkg="robot_mapping"  type="image_process.py" output="screen">
+  </node>
+  <include file="$(find mobile_robot_sim)/launch/turtlebot_rplidar.launch" />
+</launch>
+

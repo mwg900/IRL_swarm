@@ -4,8 +4,8 @@
 <launch>
 
   <!-- gazebo initial pose -->
-  <arg name="init_x" default="-2.0" />  <!-- -2.0 -->
-  <arg name="init_y" default="-2.7" />  <!-- -2.7 -->
+  <arg name="init_x" default="0" />  <!-- -2.0 -->
+  <arg name="init_y" default="0" />  <!-- -2.7 -->
   <arg name="init_theta" default="0.0" /> <!-- 0.0 -->
 
   <!-- gazebo setting for turtlbot -->
@@ -24,7 +24,7 @@
     <arg name="world_name" value="$(arg world_file)"/>
   </include>
 
-
+  <!-- Spawn master robot -->
   <include file="$(find mobile_robot_sim)/launch/includes/$(arg base)_rplidar.launch.xml">
     <arg name="base" value="$(arg base)"/>
     <arg name="stacks" value="$(arg stacks)"/>
@@ -35,13 +35,8 @@
     <arg name="theta" value="$(arg init_theta)"/> 
   </include>
 
-  <!-- Slave Robot 
-  <include file="$(find mobile_robot_sim)/launch/includes/slave_rplidar.launch.xml">
-    <arg name="x" value="-1.2"/>
-    <arg name="y" value="-2.7"/>
-    <arg name="theta" value="$(arg init_theta)"/> 
-  </include>	-->
-
+  <!-- Spawn cylinder(slave) -->
+  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-file $(find mobile_robot_sim)/urdf/slave_cylinder.urdf -urdf -z 1 -model slave" />
 
   <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
     <param name="publish_frequency" type="double" value="30.0" />

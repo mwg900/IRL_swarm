@@ -9,6 +9,8 @@ import imutils
 import tf
 import copy
 import random
+from collections import deque                               #윤곽선 중점정보 저장용 queue
+
 
 from sensor_msgs.msg import LaserScan, Imu                  #스캔 메세지
 from geometry_msgs.msg import Quaternion                    #지자기 메세지 
@@ -33,8 +35,10 @@ class Listener():
         #Image Process init
         self.width = 360
         self.height = 200
-                
-        self.range_max = 4.0 #4m
+
+        self.range_max = 6.0 #6m
+        self.pts = deque(maxlen = 20)
+        self.avr = deque(maxlen = 100)
         
         self.template = cv2.imread("/home/moon/pattern2.png",0)
         #self.template = cv2.Canny(self.template, 50, 200)
@@ -43,7 +47,10 @@ class Listener():
         if self.template.shape[0] is 0:
             raise AssertionError
         
-    #IMU 토픽 콜백
+        
+        
+        
+    #IMU 토픽 콜백(지자기값 출력)
     def imu_callback(self, imu):
         quaternion = (
             imu.orientation.x,
@@ -63,29 +70,33 @@ class Listener():
         self.scan_msg = LaserScan
         
         ranges = self.scan_msg.ranges   #메세지로부터 거리 정보 배열 복사. 0~359도의 거리정보를 가지는 배열
-    #============================================================
-    #    Image Process  
-    #============================================================
+        #============================================================
+        #    Image Process  
+        #============================================================
        
-    # Initialize ================================================
+        # Initialize ================================================
         
         root_scale = np.zeros((self.height,self.width,3), dtype = "uint8")
         
-    # Pixelization =============================================
+        # Pixelization =============================================
         #Original scale
         for i in range(len(ranges)):
-            dist = self.height - int((ranges[i]/8.0)*self.height*2) #max = 8.0
-            if dist is not 0 and dist < 200: # 4미터 안의 물체만 표시
+            dist = int((ranges[i]/self.range_max)*self.height*2) #max = 6.0
+            if dist is not 0 and dist < 200: # 3미터 안의 물체만 표시
+                dist = self.height - dist    # y축 표시 반전
                 root_scale[dist:dist+1, i] = (255,255,255)
         
         #cv2.imshow("root_scale",root_scale)
         
-    # Blurling =================================================
+        # Blurling =================================================
         dst_image = imutils.resize(root_scale, self.width*2,self.height*2)
         blureed_scale_zoom = cv2.GaussianBlur(dst_image, (11, 5), 0)
         #cv2.imshow("blurred",blureed_scale_zoom)
         
-    # Contouring ===============================================
+        
+        
+        
+         # Contouring ===============================================
         # find contours in the mask and initialize the current
         imgray = cv2.cvtColor(blureed_scale_zoom,cv2.COLOR_BGR2GRAY)   #1채널 이미지 변환
         ret, thresh = cv2.threshold(imgray,20,255,0)                #2진 이미지 변환
@@ -99,32 +110,35 @@ class Listener():
             M = cv2.moments(cnt)
             area = M['m00']           #모멘트 성분을 이용하여 영역 검출
             (x,y),radius = cv2.minEnclosingCircle(cnt)
-            center = (int(x),int(y))
+            center = (int(x),int(y))    
             diameter = 2*radius
             radius=int(radius)              #지름
             
-            if (area < 40 or 130 < area) or (int(y) <=200): 
+            if (area < 40 or 130 < area) or (int(y) <=200): #노이즈 제거
                 cv2.drawContours(mask,[cnt],-1,0,-1)  #마스킹. 검정색으로 해당 덩어리 삭제
             
             #Contour 크기 측정 조건문====================================================================
             
             elif (200 < int(y) and int(y) <= 280 ) and (10 < diameter and diameter < 15)        and (160*2 < int(x) and int(x) < 200*2):#높이가 100~200, 지름이 30~40일 시 윤곽선 출력
-                cv2.drawContours(dst_image,[cnt],-1,(0,255,0),1) 
+                cv2.drawContours(dst_image,[cnt],-1,(0,255,0),1)
+                self.pts.appendleft(center)                                 #큐에 center 좌표 저장
                 print (diameter)   
             elif (280 < int(y) and int(y) <= 330) and (15 < diameter and diameter < 30)         and (160*2 < int(x) and int(x) < 200*2): #높이가 200~300, 지름이 30~40일 시 윤곽선 출력
-                cv2.drawContours(dst_image,[cnt],-1,(0,255,255),1)    
+                cv2.drawContours(dst_image,[cnt],-1,(0,255,255),1)
+                self.pts.appendleft(center)
                 print (diameter)
-            elif (330 < int(y) and int(y) <= 400) and (30 < diameter and diameter < 40)         and (160*2 < int(x) and int(x) < 200*2):      #높이가 300~400이하, 지름이 30~40일 시 윤곽선 출력
-                cv2.drawContours(dst_image,[cnt],-1,(255,0,0),1)                                                                    #뒤에 x축 지우기 
+            elif (330 < int(y) and int(y) <= 400) and (30 < diameter and diameter < 40)         and (160*2 < int(x) and int(x) < 200*2): #높이가 300~400이하, 지름이 30~40일 시 윤곽선 출력
+                cv2.drawContours(dst_image,[cnt],-1,(255,0,0),1) 
+                self.pts.appendleft(center)
                 print (diameter)
             else:
-                cv2.drawContours(mask,[cnt],-1,0,-1)  #마스킹. 검정색으로 해당 덩어리 삭제
+                cv2.drawContours(mask,[cnt],-1,0,-1)                                                                                     #마스킹. 검정색으로 해당 덩어리 삭제
                 #cv2.drawContours(dst_image,[cnt],-1,(0,0,255),1)    #윤곽선 출력
                 pass
         #cv2.imshow("thresh",thresh)      
         
         
-    # Template Matching ============================================#
+        # Template Matching ============================================#
         # Masking 
         
         #a통신 수신 각도 라인 출력
@@ -174,38 +188,46 @@ class Listener():
         # unpack the bookkeeping varaible and compute the (x, y) coordinates of the bounding box based on the resized ratio
         (_, maxLoc, r) = found
         #print(found[0])
+        
+        position = Slavepos()
         if found[0] >500000:
             (startX, startY) = ((maxLoc[0] * r), (maxLoc[1] * r))
             (endX, endY) = (((maxLoc[0] + self.tW) * r), ((maxLoc[1] + self.tH) * r))
-            self.cen_X = int((endX + startX)/2)
-            self.cen_Y = int(startY-((endY-startY)/2))
-             
-        
-    #Slave 로봇 위치 정보 리턴 및 퍼블리시
-        #cv2.circle(dst_image, (self.cen_X, self.cen_Y+5), 1, (0,255,0), 18,-1)                   #원 출력
+            tmp_X = int((endX + startX)/2)
+            tmp_Y = int(startY-((endY-startY)/2))
+            dist_tmp = 1000; #임의값
+            #queue 최단거리 계산 
+            for (x,y) in self.pts:
+                dist = math.sqrt(pow(tmp_X-x,2)+pow(tmp_Y-y,2))
+                if dist < dist_tmp:
+                    self.cen_X = x
+                    self.cen_Y = y
+                    dist_tmp = dist
+            
+            self.pts.clear()
+            #Slave 로봇 위치 정보 리턴 및 퍼블리시
+            #cv2.circle(dst_image, (self.cen_X, self.cen_Y+5), 1, (0,255,0), 18,-1)                   #원 출력
             cv2.rectangle(dst_image, (int(startX), int(startY)), (int(endX), int(endY)), (0, 255, 0), 1)    #사각형 출력  
-        i=0
-        #print(ranges[cen_X/2+i])
-        while ranges[self.cen_X/2+i] == 0.0:
-            if i<0:
-                i-=1
-            else :
-                i+=1
-                if i is 2:
-                    i=-1
-
-        srange = "%.2f"%ranges[self.cen_X/2+i]+'m'
-        text = "Id:%d"%slave_id, self.cen_X/2, "Y :%d"%self.cen_Y, srange
-        cv2.putText(dst_image, str(text), (self.cen_X,self.cen_Y), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
-        
-        position = Slavepos()
-        position.m_ang = self.yaw
-        position.s1_dist = ranges[self.cen_X/2+i] 
-        position.s1_ang = (self.cen_X/2 + position.m_ang) -180
+            i=0
+            while ranges[self.cen_X/2+i] == 0.0:
+                if i<0:
+                    i-=1
+                else :
+                    i+=1
+                    if i is 2:
+                        i=-1
+                        
+            srange = "%.2f"%(ranges[self.cen_X/2+i]+0.1)+'m'
+            text = "Id:%d"%slave_id, self.cen_X/2, "Y :%d"%self.cen_Y, srange
+            cv2.putText(dst_image, str(text), (self.cen_X,self.cen_Y), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
+            
+            position.m_ang = self.yaw
+            position.s1_dist = ranges[self.cen_X/2+i]+0.1 
+            position.s1_ang = (self.cen_X/2 + position.m_ang) -180
         
         self.pub.publish(position)          # < r_LOS, phi_LOS, theta > 퍼블리시 
         
-    #Magnetic info line draw 
+         #Magnetic info line draw 
         mag = (self.yaw)*2  #지자기 각도 yaw. 이미지 크기 때문에 마지막에 2를 곱해주어야 함.
         cv2.line(dst_image, (mag, 0), (mag, self.height*2), (152,225,87), 1)
         
