@@ -40,7 +40,7 @@ class Listener():
         self.pts = deque(maxlen = 20)
         self.avr = deque(maxlen = 100)
         
-        self.template = cv2.imread("/home/moon/pattern2.png",0)
+        self.template = cv2.imread("/home/moon/pattern3.png",0)
         #self.template = cv2.Canny(self.template, 50, 200)
         (self.tH, self.tW) = self.template.shape[:2]
         
@@ -90,7 +90,7 @@ class Listener():
         
         # Blurling =================================================
         dst_image = imutils.resize(root_scale, self.width*2,self.height*2)
-        blureed_scale_zoom = cv2.GaussianBlur(dst_image, (11, 5), 0)
+        blureed_scale_zoom = cv2.GaussianBlur(dst_image, (11, 7), 0)
         #cv2.imshow("blurred",blureed_scale_zoom)
         
         
@@ -113,30 +113,34 @@ class Listener():
             center = (int(x),int(y))    
             diameter = 2*radius
             radius=int(radius)              #지름
-            
-            if (area < 40 or 130 < area) or (int(y) <=200): #노이즈 제거
+        
+            #if (area < 40 or 200 < area) or (int(y) <=50): #노이즈 제거
+            if (area < 40 or int(y) <=50): #노이즈 제거
                 cv2.drawContours(mask,[cnt],-1,0,-1)  #마스킹. 검정색으로 해당 덩어리 삭제
             
             #Contour 크기 측정 조건문====================================================================
             
-            elif (200 < int(y) and int(y) <= 280 ) and (10 < diameter and diameter < 15)        and (160*2 < int(x) and int(x) < 200*2):#높이가 100~200, 지름이 30~40일 시 윤곽선 출력
+            elif (100 < int(y) and int(y) <= 230 ) and (8 < diameter and diameter < 17)      :# 거리가 100~230, 지름이 8~17일 시 윤곽선 출력
                 cv2.drawContours(dst_image,[cnt],-1,(0,255,0),1)
                 self.pts.appendleft(center)                                 #큐에 center 좌표 저장
-                print (diameter)   
-            elif (280 < int(y) and int(y) <= 330) and (15 < diameter and diameter < 30)         and (160*2 < int(x) and int(x) < 200*2): #높이가 200~300, 지름이 30~40일 시 윤곽선 출력
+                print (diameter)
+            elif (240 < int(y) and int(y) <= 280) and (15 < diameter and diameter < 24)       :
                 cv2.drawContours(dst_image,[cnt],-1,(0,255,255),1)
                 self.pts.appendleft(center)
                 print (diameter)
-            elif (330 < int(y) and int(y) <= 400) and (30 < diameter and diameter < 40)         and (160*2 < int(x) and int(x) < 200*2): #높이가 300~400이하, 지름이 30~40일 시 윤곽선 출력
+            elif (280 < int(y) and int(y) <= 350) and (20 < diameter and diameter < 47)       :
                 cv2.drawContours(dst_image,[cnt],-1,(255,0,0),1) 
                 self.pts.appendleft(center)
                 print (diameter)
+            elif (350 < int(y) and int(y) <= 400) and (43 < diameter and diameter < 65)       :
+                cv2.drawContours(dst_image,[cnt],-1,(255,0,255),1) 
+                self.pts.appendleft(center)
+                print (diameter)
+                
+            #=================================================================================    
             else:
                 cv2.drawContours(mask,[cnt],-1,0,-1)                                                                                     #마스킹. 검정색으로 해당 덩어리 삭제
-                #cv2.drawContours(dst_image,[cnt],-1,(0,0,255),1)    #윤곽선 출력
-                pass
-        #cv2.imshow("thresh",thresh)      
-        
+        #cv2.imshow("mask",mask)
         
         # Template Matching ============================================#
         # Masking 
@@ -166,7 +170,7 @@ class Listener():
         found = None
     
         # loop over the scales of the image
-        for scale in np.linspace(0.3, 1.0, 5)[::-1]:                           #70%의 사이즈까지 총 3번 줄이기.
+        for scale in np.linspace(0.7, 1.0, 5)[::-1]:                           #30%의 사이즈까지 총 3번 줄이기.
             # resize the image according to the scale, and keep track of the ratio of the reizing
             resized = imutils.resize(mask, width = int(mask.shape[1] * scale))
             r = mask.shape[1] / float(resized.shape[1])            #ratio
@@ -208,8 +212,9 @@ class Listener():
             #Slave 로봇 위치 정보 리턴 및 퍼블리시
             #cv2.circle(dst_image, (self.cen_X, self.cen_Y+5), 1, (0,255,0), 18,-1)                   #원 출력
             cv2.rectangle(dst_image, (int(startX), int(startY)), (int(endX), int(endY)), (0, 255, 0), 1)    #사각형 출력  
+            
             i=0
-            while ranges[self.cen_X/2+i] == 0.0:
+            while ranges[self.cen_X/2+i] == 0.0:            #dist 값이 0(inf)일 경우 다음 픽셀의 거리 측정      
                 if i<0:
                     i-=1
                 else :
@@ -217,12 +222,12 @@ class Listener():
                     if i is 2:
                         i=-1
                         
-            srange = "%.2f"%(ranges[self.cen_X/2+i]+0.1)+'m'
+            srange = "%.2f"%(ranges[self.cen_X/2+i]+0.09)+'m'
             text = "Id:%d"%slave_id, self.cen_X/2, "Y :%d"%self.cen_Y, srange
             cv2.putText(dst_image, str(text), (self.cen_X,self.cen_Y), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
             
             position.m_ang = self.yaw
-            position.s1_dist = ranges[self.cen_X/2+i]+0.1 
+            position.s1_dist = ranges[self.cen_X/2+i]+0.09 
             position.s1_ang = (self.cen_X/2 + position.m_ang) -180
         
         self.pub.publish(position)          # < r_LOS, phi_LOS, theta > 퍼블리시 
