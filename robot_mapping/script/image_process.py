@@ -222,15 +222,15 @@ class Listener():
                     if i is 2:
                         i=-1
                         
-            srange = "%.2f"%(ranges[self.cen_X/2+i]+0.09)+'m'
+            srange = "%.2f"%(ranges[self.cen_X/2+i]+0.075)+'m'
             text = "Id:%d"%slave_id, self.cen_X/2, "Y :%d"%self.cen_Y, srange
             cv2.putText(dst_image, str(text), (self.cen_X,self.cen_Y), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
             
             position.m_ang = self.yaw
-            position.s1_dist = ranges[self.cen_X/2+i]+0.09 
+            position.s1_dist = ranges[self.cen_X/2+i]+0.075 
             position.s1_ang = (self.cen_X/2 + position.m_ang) -180
         
-        self.pub.publish(position)          # < r_LOS, phi_LOS, theta > 퍼블리시 
+            self.pub.publish(position)          # < r_LOS, phi_LOS, theta > 퍼블리시 
         
          #Magnetic info line draw 
         mag = (self.yaw)*2  #지자기 각도 yaw. 이미지 크기 때문에 마지막에 2를 곱해주어야 함.
