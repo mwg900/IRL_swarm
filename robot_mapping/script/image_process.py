@@ -226,10 +226,17 @@ class Listener():
             text = "Id:%d"%slave_id, self.cen_X/2, "Y :%d"%self.cen_Y, srange
             cv2.putText(dst_image, str(text), (self.cen_X,self.cen_Y), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
             
+            
             position.m_ang = self.yaw
             position.s1_dist = ranges[self.cen_X/2+i]+0.075 
             position.s1_ang = (self.cen_X/2 + position.m_ang) -180
-        
+            
+            
+            #Graph 출력 용 변수들 
+            position.recog_ang = position.s1_ang + 180   #인식된 슬레이브 로봇 각도(여기선 지자기센서가 없으므로 180을 더해줌)
+            position.real_ang = 180             #실제 슬레이브 로봇 각도
+            position.real_dist = 1.0            #실제 슬레이브 로봇 거리
+            position.sig_timing = s1_theta      #노이즈
             self.pub.publish(position)          # < r_LOS, phi_LOS, theta > 퍼블리시 
         
          #Magnetic info line draw 
