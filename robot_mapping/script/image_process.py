@@ -13,8 +13,9 @@ from collections import deque                               #윤곽선 중점정
 
 
 from sensor_msgs.msg import LaserScan, Imu                  #스캔 메세지
-from geometry_msgs.msg import Quaternion                    #지자기 메세지 
-from robot_mapping.msg import Slavepos                     #serial 플래그용 메세지
+from geometry_msgs.msg import Quaternion                    #지자기 메세지
+from robot_mapping.msg import Serialmsg                        #지그비 수신 메세지
+from robot_mapping.msg import Slavepos                      #지그비 송신 메세지
 import std_msgs
 
 
@@ -27,12 +28,16 @@ class Listener():
         #ros topic 구독자 설정 및 콜백함수 정의
         laser_sub = rospy.Subscriber("/scan", LaserScan, self.scan_callback, queue_size= 100)
         imu_sub = rospy.Subscriber("/imu/data", Imu, self.imu_callback, queue_size= 100)
+        zigbee_sub = rospy.Subscriber("/Serial", Serialmsg, self.zigbee_callback, queue_size= 100)
         self.pub = rospy.Publisher('/position', Slavepos, queue_size=10)
         
         #IMU init
         self.yaw = 0
         #SCAN init
         self.F = False
+        #Serial init
+        self.ang = [180,180,180]
+        
         
         #Image Process init
         self.width = 360
@@ -48,8 +53,6 @@ class Listener():
         
         if self.template.shape[0] is 0:
             raise AssertionError
-        
-        
         
         
     #IMU 토픽 콜백(지자기값 출력)
@@ -72,6 +75,20 @@ class Listener():
         self.scan_msg = LaserScan
         self.F = True
         
+    def zigbee_callback(self, Serialmsg):
+        elapsed_time = (Serialmsg.time - self.scan_msg.header.stamp).to_sec()* 1e-3
+        Ka = -539      #-(360+179) 
+        angle = ((elapsed_time/self.scan_msg.time_increment) * math.degrees(self.scan_msg.angle_increment) + Ka)*-1 #Ka = 각도 조정용 매직남바 
+        count = 179 #매직남바 
+        angle = int(round(angle + count))     #반올림 뒤 인트형으로 변환 
+        
+        if Serialmsg.id == 1:
+            self.ang[0] = angle
+        elif Serialmsg.id == 2:
+            self.ang[1] = angle
+        elif Serialmsg.id == 3:
+            self.ang[2] = angle
+             
     def image_process(self):
         while not rospy.is_shutdown():
             if self.F is True:
@@ -154,7 +171,7 @@ class Listener():
                 #a통신 수신 각도 라인 출력
                 slave_id = 1
                 if slave_id is 1:
-                    s1_theta = random.randint(160,200)     #임의값 160~200도 설정
+                    s1_theta = random.randint(self.ang[0]-20, self.ang[0]+20)     #임의값 160~200도 설정
                     cv2.line(dst_image, (s1_theta*2, 0), (s1_theta*2, thresh.shape[0]), (255,0,255), 1)
                     
                     if s1_theta < 30:   #해당 영역만 출력하는 마스크 생성 
