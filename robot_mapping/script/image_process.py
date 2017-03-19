@@ -76,7 +76,7 @@ class Listener():
         self.F = True
         
     def zigbee_callback(self, Serialmsg):
-        elapsed_time = (Serialmsg.time - self.scan_msg.header.stamp).to_sec()* 1e-3
+        elapsed_time = (Serialmsg.time.data - self.scan_msg.header.stamp).to_sec()* 1e-3
         Ka = -539      #-(360+179) 
         angle = ((elapsed_time/self.scan_msg.time_increment) * math.degrees(self.scan_msg.angle_increment) + Ka)*-1 #Ka = 각도 조정용 매직남바 
         count = 179 #매직남바 
