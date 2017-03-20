@@ -47,10 +47,10 @@ class Listener():
         self.pts = deque(maxlen = 20)
         self.avr = deque(maxlen = 100)
         
-        self.template = cv2.imread("/home/moon/pattern3.png",0)
+        self.template = cv2.imread("../pattern3.png",0)
         #self.template = cv2.Canny(self.template, 50, 200)
         (self.tH, self.tW) = self.template.shape[:2]
-        
+        #cv2.imshow('pattern',self.template)
         if self.template.shape[0] is 0:
             raise AssertionError
         
@@ -193,7 +193,7 @@ class Listener():
                 found = None
             
                 # loop over the scales of the image
-                for scale in np.linspace(0.7, 1.0, 5)[::-1]:                           #30%의 사이즈까지 총 3번 줄이기.
+                for scale in np.linspace(0.8, 1.8, 5)[::-1]:                           #30%의 사이즈까지 총 3번 줄이기.
                     # resize the image according to the scale, and keep track of the ratio of the reizing
                     resized = imutils.resize(mask, width = int(mask.shape[1] * scale))
                     r = mask.shape[1] / float(resized.shape[1])            #ratio
@@ -259,7 +259,7 @@ class Listener():
                     position.recog_ang = position.s1_ang + 180   #인식된 슬레이브 로봇 각도(여기선 지자기센서가 없으므로 180을 더해줌)
                     position.real_ang = 180             #실제 슬레이브 로봇 각도
                     position.real_dist = 1.0            #실제 슬레이브 로봇 거리
-                    position.sig_timing = s1_theta      #노이즈
+                    position.sig_timing = self.ang[0]      #노이즈
                     self.pub.publish(position)          # < r_LOS, phi_LOS, theta > 퍼블리시 
                 
                  #Magnetic info line draw 
