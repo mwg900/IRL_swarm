@@ -14,7 +14,7 @@ from collections import deque                               #윤곽선 중점정
 
 from sensor_msgs.msg import LaserScan, Imu                  #스캔 메세지
 from geometry_msgs.msg import Quaternion                    #지자기 메세지
-from robot_mapping.msg import Serialmsg                        #지그비 수신 메세지
+from robot_mapping.msg import Serialmsg                     #지그비 수신 메세지
 from robot_mapping.msg import Slavepos                      #지그비 송신 메세지
 import std_msgs
 
@@ -36,7 +36,7 @@ class Listener():
         #SCAN init
         self.F = False
         #Serial init
-        self.ang = [180,180,180]
+        self.ang = [180,100,260]
         
         
         #Image Process init
@@ -54,6 +54,7 @@ class Listener():
         if self.template.shape[0] is 0:
             raise AssertionError
         
+        self.r = rospy.Rate(10) # 10hz
         
     #IMU 토픽 콜백(지자기값 출력)
     def imu_callback(self, imu):
@@ -81,14 +82,14 @@ class Listener():
         angle = ((elapsed_time/self.scan_msg.time_increment) * math.degrees(self.scan_msg.angle_increment) + Ka)*-1 #Ka = 각도 조정용 매직남바 
         count = 179 #매직남바 
         angle = int(round(angle + count))     #반올림 뒤 인트형으로 변환 
-        
+        ''' 각도 수신 시 할당용. 나중에 주석 풀기
         if Serialmsg.id == 1:
             self.ang[0] = angle
         elif Serialmsg.id == 2:
             self.ang[1] = angle
         elif Serialmsg.id == 3:
             self.ang[2] = angle
-             
+        '''     
     def image_process(self):
         while not rospy.is_shutdown():
             if self.F is True:
@@ -143,23 +144,22 @@ class Listener():
                     
                     #Contour 크기 측정 조건문====================================================================
                     
-                    elif (100 < int(y) and int(y) <= 230 ) and (8 < diameter and diameter < 17)      :# 거리가 100~230, 지름이 8~17일 시 윤곽선 출력
-                        cv2.drawContours(dst_image,[cnt],-1,(0,255,0),1)
-                        self.pts.appendleft(center)                                 #큐에 center 좌표 저장
-                        print (diameter)
-                    elif (240 < int(y) and int(y) <= 280) and (15 < diameter and diameter < 24)       :
+                    #elif (100 < int(y) and int(y) <= 230 ) and (8 < diameter and diameter < 17) :# 거리가 100~230, 지름이 8~17일 시 윤곽선 출력
+                    #    cv2.drawContours(dst_image,[cnt],-1,(0,255,0),1)
+                    #    self.pts.appendleft(center)                                 #큐에 center 좌표 저장
+                    #    print (diameter)
+                    elif (240 < int(y) and int(y) <= 280) and (15 < diameter and diameter < 24) :
                         cv2.drawContours(dst_image,[cnt],-1,(0,255,255),1)
                         self.pts.appendleft(center)
                         print (diameter)
-                    elif (280 < int(y) and int(y) <= 350) and (20 < diameter and diameter < 47)       :
+                    elif (280 < int(y) and int(y) <= 350) and (20 < diameter and diameter < 47) :
                         cv2.drawContours(dst_image,[cnt],-1,(255,0,0),1) 
                         self.pts.appendleft(center)
                         print (diameter)
-                    elif (350 < int(y) and int(y) <= 400) and (43 < diameter and diameter < 65)       :
+                    elif (350 < int(y) and int(y) <= 400) and (43 < diameter and diameter < 65) :
                         cv2.drawContours(dst_image,[cnt],-1,(255,0,255),1) 
                         self.pts.appendleft(center)
                         print (diameter)
-                        
                     #=================================================================================    
                     else:
                         cv2.drawContours(mask,[cnt],-1,0,-1)                                                                                     #마스킹. 검정색으로 해당 덩어리 삭제
@@ -169,24 +169,25 @@ class Listener():
                 # Masking 
                 
                 #a통신 수신 각도 라인 출력
-                slave_id = 1
-                if slave_id is 1:
-                    s1_theta = random.randint(self.ang[0]-20, self.ang[0]+20)     #임의값 160~200도 설정
-                    cv2.line(dst_image, (s1_theta*2, 0), (s1_theta*2, thresh.shape[0]), (255,0,255), 1)
-                    
-                    if s1_theta < 30:   #해당 영역만 출력하는 마스크 생성 
-                        cv2.rectangle(mask,((s1_theta+30)*2,0), ((360+s1_theta-30)*2, mask.shape[0]),(0),-1)
-         
-                    elif s1_theta > 330:
-                        cv2.rectangle(mask,((s1_theta+30-360)*2,0), ((s1_theta-30)*2, mask.shape[0]),(0),-1)
-                    
-                    else:
-                        cv2.rectangle(mask,(0,0),((s1_theta-30)*2,mask.shape[1]),(0), -1)
-                        cv2.rectangle(mask,((s1_theta+30)*2 ,0), (mask.shape[1], mask.shape[0]),(0), -1)
-                cv2.imshow("mask",mask)
-                    
                 
-                   
+                slave_id = 1
+                #case_s1
+                s1_theta = self.ang[0]
+                cv2.line(dst_image, (s1_theta*2, 0), (s1_theta*2, thresh.shape[0]), (255,0,255), 1)
+                s1_ROI = mask[0:mask.shape[0], (s1_theta-30)*2 :(s1_theta+30)*2]
+                #case_s2
+                s2_theta = self.ang[1]
+                cv2.line(dst_image, (s2_theta*2, 0), (s2_theta*2, thresh.shape[0]), (100,23,245), 1)
+                s2_ROI = mask[0:mask.shape[0], (s2_theta-30)*2 :(s2_theta+30)*2]
+                #case_s3
+                s3_theta = self.ang[2]
+                cv2.line(dst_image, (s3_theta*2, 0), (s3_theta*2, thresh.shape[0]), (200,51,28), 1)
+                s3_ROI = mask[0:mask.shape[0], (s3_theta-30)*2 :(s3_theta+30)*2]
+                
+                ROI = np.hstack([s1_ROI, s2_ROI, s3_ROI])
+                cv2.imshow('ROI',ROI)
+                
+                
                 #Matching 시작
                 # load the image image, convert it to grayscale, and detect edges
                 #template = cv2.imread("/home/moon/pattern.png")
@@ -195,8 +196,8 @@ class Listener():
                 # loop over the scales of the image
                 for scale in np.linspace(0.8, 1.8, 5)[::-1]:                           #30%의 사이즈까지 총 3번 줄이기.
                     # resize the image according to the scale, and keep track of the ratio of the reizing
-                    resized = imutils.resize(mask, width = int(mask.shape[1] * scale))
-                    r = mask.shape[1] / float(resized.shape[1])            #ratio
+                    resized = imutils.resize(s1_ROI, width = int(s1_ROI.shape[1] * scale))
+                    r = s1_ROI.shape[1] / float(resized.shape[1])            #ratio
                 
                     # if the resized image is smaller than the template, then break from the loop
                     if resized.shape[0] < self.tH or resized.shape[1] < self.tW:                      #이미지의 크기보다 작아지면 매칭 종료
@@ -214,15 +215,16 @@ class Listener():
                         
                 # unpack the bookkeeping varaible and compute the (x, y) coordinates of the bounding box based on the resized ratio
                 (_, maxLoc, r) = found
-                #print(found[0])
                 
                 position = Slavepos()
-                if found[0] >500000:
+                if found[0] >500000:                #매칭 스코어가 일정값 이상일 경우
                     (startX, startY) = ((maxLoc[0] * r), (maxLoc[1] * r))
                     (endX, endY) = (((maxLoc[0] + self.tW) * r), ((maxLoc[1] + self.tH) * r))
                     tmp_X = int((endX + startX)/2)
                     tmp_Y = int(startY-((endY-startY)/2))
                     dist_tmp = 1000; #임의값
+                    #cv2.rectangle(s1_ROI, (5, 5), (30, 30), (255,255,255), 1)    #사각형 출력
+                
                     #queue 최단거리 계산 
                     for (x,y) in self.pts:
                         dist = math.sqrt(pow(tmp_X-x,2)+pow(tmp_Y-y,2))
@@ -234,7 +236,7 @@ class Listener():
                     self.pts.clear()
                     #Slave 로봇 위치 정보 리턴 및 퍼블리시
                     #cv2.circle(dst_image, (self.cen_X, self.cen_Y+5), 1, (0,255,0), 18,-1)                   #원 출력
-                    cv2.rectangle(dst_image, (int(startX), int(startY)), (int(endX), int(endY)), (0, 255, 0), 1)    #사각형 출력  
+                    cv2.rectangle(dst_image, ((s1_theta-30)*2+int(startX), int(startY)), ((s1_theta-30)*2+int(endX), int(endY)), (0, 255, 0), 1)    #사각형 출력  
                     
                     i=0
                     while ranges[self.cen_X/2+i] == 0.0:            #dist 값이 0(inf)일 경우 다음 픽셀의 거리 측정      
@@ -268,7 +270,7 @@ class Listener():
                 
                 cv2.imshow("dst_image",dst_image)
                 cv2.waitKey(1)
-            #self.r.sleep()
+            self.r.sleep()
 #메인문 시작        
 if __name__ == '__main__':
     main = Listener()              #클래스 시작
