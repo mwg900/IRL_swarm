@@ -14,7 +14,7 @@ from collections import deque                               #윤곽선 중점정
 
 from sensor_msgs.msg import LaserScan, Imu                  #스캔 메세지
 from geometry_msgs.msg import Quaternion                    #지자기 메세지
-from robot_mapping.msg import Serialmsg                        #지그비 수신 메세지
+from robot_mapping.msg import Serialmsg                     #지그비 수신 메세지
 from robot_mapping.msg import Slavepos                      #지그비 송신 메세지
 import std_msgs
 
@@ -36,7 +36,7 @@ class Listener():
         #SCAN init
         self.F = False
         #Serial init
-        self.ang = [180,180,180]
+        self.ang = [180,100,260]
         
         
         #Image Process init
@@ -169,24 +169,25 @@ class Listener():
                 # Masking 
                 
                 #a통신 수신 각도 라인 출력
-                slave_id = 1
-                if slave_id is 1:
-                    s1_theta = random.randint(self.ang[0]-20, self.ang[0]+20)     #임의값 160~200도 설정
-                    cv2.line(dst_image, (s1_theta*2, 0), (s1_theta*2, thresh.shape[0]), (255,0,255), 1)
-                    
-                    if s1_theta < 30:   #해당 영역만 출력하는 마스크 생성 
-                        cv2.rectangle(mask,((s1_theta+30)*2,0), ((360+s1_theta-30)*2, mask.shape[0]),(0),-1)
-         
-                    elif s1_theta > 330:
-                        cv2.rectangle(mask,((s1_theta+30-360)*2,0), ((s1_theta-30)*2, mask.shape[0]),(0),-1)
-                    
-                    else:
-                        cv2.rectangle(mask,(0,0),((s1_theta-30)*2,mask.shape[1]),(0), -1)
-                        cv2.rectangle(mask,((s1_theta+30)*2 ,0), (mask.shape[1], mask.shape[0]),(0), -1)
-                cv2.imshow("mask",mask)
-                    
                 
-                   
+                slave_id = 1
+                #case_s1
+                s1_theta = self.ang[0]
+                cv2.line(dst_image, (s1_theta*2, 0), (s1_theta*2, thresh.shape[0]), (255,0,255), 1)
+                s1_ROI = mask[0:mask.shape[0], (s1_theta-30)*2 :(s1_theta+30)*2]
+                #case_s2
+                s2_theta = self.ang[1]
+                cv2.line(dst_image, (s2_theta*2, 0), (s2_theta*2, thresh.shape[0]), (100,23,245), 1)
+                s2_ROI = mask[0:mask.shape[0], (s2_theta-30)*2 :(s2_theta+30)*2]
+                #case_s3
+                s3_theta = self.ang[2]
+                cv2.line(dst_image, (s3_theta*2, 0), (s3_theta*2, thresh.shape[0]), (200,51,28), 1)
+                s3_ROI = mask[0:mask.shape[0], (s3_theta-30)*2 :(s3_theta+30)*2]
+                
+                ROI = np.hstack([s1_ROI, s2_ROI, s3_ROI])
+                cv2.imshow('ROI',ROI)
+                
+                
                 #Matching 시작
                 # load the image image, convert it to grayscale, and detect edges
                 #template = cv2.imread("/home/moon/pattern.png")
