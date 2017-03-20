@@ -32,7 +32,7 @@ class zigbee:
             
             #receive = ser.read()
             receive = 1
-            rospy.loginfo("id: %s received", receive)
+            #rospy.loginfo("id: %s received", receive)
             msg = Serialmsg()
             if receive is not '':
                 msg.time.data = rospy.Time.now()
