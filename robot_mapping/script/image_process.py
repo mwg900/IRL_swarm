@@ -57,6 +57,14 @@ class Listener():
         self.r = rospy.Rate(5) # 10hz
         self.count = 0
         
+        self.s1_ang_old = 0
+        self.s1_dist_old = 0
+        self.s2_ang_old = 0
+        self.s2_dist_old = 0
+        self.s3_ang_old = 0
+        self.s3_dist_old = 0
+        
+        
     #IMU 토픽 콜백(지자기값 출력)
     def imu_callback(self, imu):
         quaternion = (
@@ -84,6 +92,7 @@ class Listener():
         angle = ((elapsed_time/self.scan_msg.time_increment) * math.degrees(self.scan_msg.angle_increment) + Ka)*-1 #Ka = 각도 조정용 매직남바 
         count = 179 #매직남바 
         angle = int(round(angle + count))     #반올림 뒤 인트형으로 변환 
+        
         ''' 각도 수신 시 할당용. 나중에 주석 풀기
         if Serialmsg.id == 1:
             self.ang[0] = angle
@@ -158,9 +167,13 @@ class Listener():
             cv2.putText(self.dst_image, str(text), ((theta-30)*2+int(endX), int(endY)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
             #cv2.putText(self.dst_image, str(text), (cen_X,cen_Y), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
             return ang, dist
-        #NONE 임시값 리턴
-        NONE = 999
-        return NONE, NONE
+
+        if slave_id == 1:
+            return self.s1_ang_old, self.s1_dist_old
+        elif slave_id == 2:
+            return self.s2_ang_old, self.s2_dist_old
+        else:
+            return self.s3_ang_old, self.s3_dist_old
 
 
     #main process
@@ -267,14 +280,19 @@ class Listener():
                 position.s1_ang, position.s1_dist = self.matching(1, s1_ROI, s1_theta)
                 position.s2_ang, position.s2_dist = self.matching(2, s2_ROI, s2_theta)
                 position.s3_ang, position.s3_dist = self.matching(3, s3_ROI, s3_theta) 
-                      
+                
+                #temp value update
+                self.s1_ang_old, self.s1_dist_old = position.s1_ang, position.s1_dist
+                self.s2_ang_old, self.s2_dist_old = position.s2_ang, position.s2_dist
+                self.s3_ang_old, self.s3_dist_old = position.s3_ang, position.s3_dist
+                
                 #Graph 출력 용 변수들 
                 position.recog_ang = position.s1_ang + 180   #인식된 슬레이브 로봇 각도(여기선 지자기센서가 없으므로 180을 더해줌)
                 position.real_ang = 180             #실제 슬레이브 로봇 각도
                 position.real_dist = 1.0            #실제 슬레이브 로봇 거리
                 position.sig_timing = self.ang[0]      #노이즈
                 self.count += 1
-                if self.count > 5:
+                if self.count > 3:
                     self.pub.publish(position)          # < r_LOS, phi_LOS, theta > 퍼블리시 
                     self.count = 0
 
