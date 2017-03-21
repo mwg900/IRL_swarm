@@ -185,8 +185,8 @@ class Listener():
                 cv2.line(dst_image, (s3_theta*2, 0), (s3_theta*2, thresh.shape[0]), (200,51,28), 1)
                 s3_ROI = mask[0:mask.shape[0], (s3_theta-30)*2 :(s3_theta+30)*2]
                 
-                ROI = np.hstack([s1_ROI, s2_ROI, s3_ROI])
-                cv2.imshow('ROI',ROI)
+                #ROI = np.hstack([s1_ROI, s2_ROI, s3_ROI])
+                #cv2.imshow('ROI',ROI)
                 
                 
                 #Matching 시작
@@ -221,7 +221,7 @@ class Listener():
                 if found[0] >500000:                #매칭 스코어가 일정값 이상일 경우
                     (startX, startY) = ((maxLoc[0] * r), (maxLoc[1] * r))
                     (endX, endY) = (((maxLoc[0] + self.tW) * r), ((maxLoc[1] + self.tH) * r))
-                    tmp_X = int(((s1_theta-30)*2+int(endX)) + ((s1_theta-30)*2+int(startX))/2)
+                    tmp_X = (s1_theta-30)*2+int((endX+startX)/2)
                     tmp_Y = int(startY-((endY-startY)/2))
                     dist_tmp = 1000; #임의값
                     #cv2.rectangle(s1_ROI, (5, 5), (30, 30), (255,255,255), 1)    #사각형 출력
