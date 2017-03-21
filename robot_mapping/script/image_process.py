@@ -166,7 +166,8 @@ class Listener():
             text = "Id:%d"%slave_id, ang, "Y :%d"%cen_Y, srange
             cv2.putText(self.dst_image, str(text), ((theta-30)*2+int(endX), int(endY)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
             #cv2.putText(self.dst_image, str(text), (cen_X,cen_Y), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
-            return ang, dist
+            phi_LOS = (ang + self.yaw)-180
+            return phi_LOS, dist
 
         if slave_id == 1:
             return self.s1_ang_old, self.s1_dist_old
@@ -271,8 +272,8 @@ class Listener():
                 cv2.line(self.dst_image, (s3_theta*2, 0), (s3_theta*2, thresh.shape[0]), (200,51,28), 1)
                 s3_ROI = mask[0:mask.shape[0], (s3_theta-30)*2 :(s3_theta+30)*2]
                 
-                ROI = np.hstack([s1_ROI, s2_ROI, s3_ROI])
-                cv2.imshow('ROI',ROI)
+                #ROI = np.hstack([s1_ROI, s2_ROI, s3_ROI])
+                #cv2.imshow('ROI',ROI)
                 
                 position = Slavepos()
                 
