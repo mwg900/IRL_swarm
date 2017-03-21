@@ -21,7 +21,9 @@ class zigbee:
     def callback(self, msg):
         
         s1_dist_mm = "%.0f" %(msg.s1_dist*1000)
-        self.send_msg = "<"+str(msg.m_ang)+","+s1_dist_mm+","+str(msg.s1_ang)+","+"0,0,0,0"+">"        
+        s2_dist_mm = "%.0f" %(msg.s2_dist*1000)
+        s3_dist_mm = "%.0f" %(msg.s3_dist*1000)
+        self.send_msg = "<"+str(msg.m_ang)+","+s1_dist_mm+","+str(msg.s1_ang)+","+s2_dist_mm+","+str(msg.s2_ang)+","+s3_dist_mm+","+str(msg.s3_ang)  +">"        
         #self.ser.writelines(self.send_msg)
         #print(self.send_msg)
 
@@ -41,11 +43,11 @@ class zigbee:
                 self.pub.publish(msg)           
                 #Zigbee serial Message 전송
                 #send_msg = "return <%d>" %msg.id
-            self.count+=1
-            if self.count >30:
-                self.ser.writelines(self.send_msg)
-                print(self.send_msg)   
-                self.count = 0
+            #self.count+=1
+            #if self.count >30:
+            self.ser.writelines(self.send_msg)
+            print(self.send_msg)   
+            self.count = 0
             #self.r.sleep() 최대한 빠른 속도로 동작하기 위하여 주석처리
 if __name__ == '__main__':
     try:

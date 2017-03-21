@@ -135,18 +135,15 @@ class Listener():
             for (x,y) in self.pts:
                 dist = math.sqrt(pow(tmp_X-x,2)+pow(tmp_Y-y,2))
                 if dist < dist_tmp:
-                    self.cen_X = x
-                    self.cen_Y = y
+                    cen_X = x
+                    cen_Y = y
                     dist_tmp = dist
             
-            self.pts.clear()
-         
-            #Slave 로봇 위치 정보 리턴 및 퍼블리시
-            #cv2.circle(dst_image, (self.cen_X, self.cen_Y+5), 1, (0,255,0), 18,-1)                   #원 출력
+            
             cv2.rectangle(self.dst_image, ((theta-30)*2+int(startX), int(startY)), ((theta-30)*2+int(endX), int(endY)), (0, 255, 0), 1)    #사각형 출력  
             
             i=0
-            while ranges[self.cen_X/2+i] == 0.0:            #dist 값이 0(inf)일 경우 다음 픽셀의 거리 측정      
+            while ranges[cen_X/2+i] == 0.0:            #dist 값이 0(inf)일 경우 다음 픽셀의 거리 측정      
                 if i<0:
                     i-=1
                 else :
@@ -154,13 +151,14 @@ class Listener():
                     if i is 2:
                         i=-1
                         
-            dist = ranges[self.cen_X/2+i]+0.075
-            ang = self.cen_X/2
+            dist = ranges[cen_X/2+i]+0.075
+            ang = cen_X/2
             srange = "%.2f"%(dist)+'m'
-            text = "Id:%d"%slave_id, ang, "Y :%d"%self.cen_Y, srange
-            cv2.putText(self.dst_image, str(text), (self.cen_X,self.cen_Y), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
+            text = "Id:%d"%slave_id, ang, "Y :%d"%cen_Y, srange
+            cv2.putText(self.dst_image, str(text), ((theta-30)*2+int(endX), int(endY)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
+            #cv2.putText(self.dst_image, str(text), (cen_X,cen_Y), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
             return ang, dist
-        #임시값 발부
+        #NONE 임시값 리턴
         NONE = 9999
         return NONE, NONE
 
@@ -264,33 +262,43 @@ class Listener():
                 cv2.imshow('ROI',ROI)
                 
                 position = Slavepos()
+                
                 position.m_ang = self.yaw
                 s1_ang, s1_dist = self.matching(1, s1_ROI, s1_theta)
                 s2_ang, s2_dist = self.matching(2, s2_ROI, s2_theta)
                 s3_ang, s3_dist = self.matching(3, s3_ROI, s3_theta)
-                '''
-                if 1 == 1: #임시    
-                    position.m_ang = self.yaw
-                    position.s1_dist = ranges[self.cen_X/2+i]+0.075 
-                    position.s1_ang = (self.cen_X/2 + position.m_ang) -180
-                    
-                    
-                    #Graph 출력 용 변수들 
-                    position.recog_ang = position.s1_ang + 180   #인식된 슬레이브 로봇 각도(여기선 지자기센서가 없으므로 180을 더해줌)
-                    position.real_ang = 180             #실제 슬레이브 로봇 각도
-                    position.real_dist = 1.0            #실제 슬레이브 로봇 거리
-                    position.sig_timing = self.ang[0]      #노이즈
-                    self.count += 1
-                    if self.count > 5:
-                        self.pub.publish(position)          # < r_LOS, phi_LOS, theta > 퍼블리시 
-                        self.count = 0
-                '''
+                
+                #New value update
+                if s1_ang is not 9999:
+                    position.s1_ang = s1_ang
+                if s1_dist is not 9999:
+                    position.s1_dist = s1_dist
+                if s2_ang is not 9999:
+                    position.s2_ang = s2_ang
+                if s2_dist is not 9999:
+                    position.s2_dist = s2_dist
+                if s3_ang is not 9999:
+                    position.s3_ang = s3_ang
+                if s3_dist is not 9999:
+                    position.s3_dist = s3_dist            
+                      
+                #Graph 출력 용 변수들 
+                position.recog_ang = position.s1_ang + 180   #인식된 슬레이브 로봇 각도(여기선 지자기센서가 없으므로 180을 더해줌)
+                position.real_ang = 180             #실제 슬레이브 로봇 각도
+                position.real_dist = 1.0            #실제 슬레이브 로봇 거리
+                position.sig_timing = self.ang[0]      #노이즈
+                self.count += 1
+                if self.count > 5:
+                    self.pub.publish(position)          # < r_LOS, phi_LOS, theta > 퍼블리시 
+                    self.count = 0
+
                  #Magnetic info line draw 
                 mag = (self.yaw)*2  #지자기 각도 yaw. 이미지 크기 때문에 마지막에 2를 곱해주어야 함.
                 cv2.line(self.dst_image, (mag, 0), (mag, self.height*2), (152,225,87), 1)
                 
                 cv2.imshow("dst_image",self.dst_image)
                 cv2.waitKey(1)
+                self.pts.clear()
         self.r.sleep()
 #메인문 시작        
 if __name__ == '__main__':
