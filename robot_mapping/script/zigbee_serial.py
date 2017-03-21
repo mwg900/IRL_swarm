@@ -17,23 +17,23 @@ class zigbee:
         self.r = rospy.Rate(5) # 10hz
         self.send_msg = "<1,2,3,4,5,6,7>"
     
+        self.count = 0
     def callback(self, msg):
         
         s1_dist_mm = "%.0f" %(msg.s1_dist*1000)
         self.send_msg = "<"+str(msg.m_ang)+","+s1_dist_mm+","+str(msg.s1_ang)+","+"0,0,0,0"+">"        
-        self.ser.writelines(self.send_msg)
-        print(self.send_msg)
-        #rospy.loginfo("<m_w,s1_d,s1_w,s2_d,s2_w,s3_d,s3_w> = %s" ,self.send_msg)
-    
+        #self.ser.writelines(self.send_msg)
+        #print(self.send_msg)
+
     def talker(self):
         #msg = Serialmsg()
         #msg.flag.data = True
         
         while not rospy.is_shutdown():
             
-            #receive = ser.read()
-            receive = 1
-            #rospy.loginfo("id: %s received", receive)
+            receive = self.ser.read()
+            #receive = 1
+            rospy.loginfo("id:%s received", receive)
             msg = Serialmsg()
             if receive is not '':
                 msg.time.data = rospy.Time.now()
@@ -41,16 +41,17 @@ class zigbee:
                 self.pub.publish(msg)           
                 #Zigbee serial Message 전송
                 #send_msg = "return <%d>" %msg.id
-                
-                #print(send_msg)
-
-            #self.ser.writelines(self.send_msg)
+            self.count+=1
+            if self.count >30:
+                self.ser.writelines(self.send_msg)
+                print(self.send_msg)   
+                self.count = 0
             #self.r.sleep() 최대한 빠른 속도로 동작하기 위하여 주석처리
-        self.ser.close()
 if __name__ == '__main__':
     try:
         main = zigbee()
         main.talker()
+        self.ser.close()
     except rospy.ROSInterruptException: pass
 
     
