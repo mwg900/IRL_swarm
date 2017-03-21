@@ -159,7 +159,7 @@ class Listener():
             #cv2.putText(self.dst_image, str(text), (cen_X,cen_Y), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
             return ang, dist
         #NONE 임시값 리턴
-        NONE = 9999
+        NONE = 999
         return NONE, NONE
 
 
@@ -264,23 +264,9 @@ class Listener():
                 position = Slavepos()
                 
                 position.m_ang = self.yaw
-                s1_ang, s1_dist = self.matching(1, s1_ROI, s1_theta)
-                s2_ang, s2_dist = self.matching(2, s2_ROI, s2_theta)
-                s3_ang, s3_dist = self.matching(3, s3_ROI, s3_theta)
-                
-                #New value update
-                if s1_ang is not 9999:
-                    position.s1_ang = s1_ang
-                if s1_dist is not 9999:
-                    position.s1_dist = s1_dist
-                if s2_ang is not 9999:
-                    position.s2_ang = s2_ang
-                if s2_dist is not 9999:
-                    position.s2_dist = s2_dist
-                if s3_ang is not 9999:
-                    position.s3_ang = s3_ang
-                if s3_dist is not 9999:
-                    position.s3_dist = s3_dist            
+                position.s1_ang, position.s1_dist = self.matching(1, s1_ROI, s1_theta)
+                position.s2_ang, position.s2_dist = self.matching(2, s2_ROI, s2_theta)
+                position.s3_ang, position.s3_dist = self.matching(3, s3_ROI, s3_theta) 
                       
                 #Graph 출력 용 변수들 
                 position.recog_ang = position.s1_ang + 180   #인식된 슬레이브 로봇 각도(여기선 지자기센서가 없으므로 180을 더해줌)
