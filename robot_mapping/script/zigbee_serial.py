@@ -22,6 +22,7 @@ class zigbee:
         s1_dist_mm = "%.0f" %(msg.s1_dist*1000)
         self.send_msg = "<"+str(msg.m_ang)+","+s1_dist_mm+","+str(msg.s1_ang)+","+"0,0,0,0"+">"        
         self.ser.writelines(self.send_msg)
+        print(self.send_msg)
         #rospy.loginfo("<m_w,s1_d,s1_w,s2_d,s2_w,s3_d,s3_w> = %s" ,self.send_msg)
     
     def talker(self):
@@ -44,7 +45,6 @@ class zigbee:
                 #print(send_msg)
 
             #self.ser.writelines(self.send_msg)
-            print(self.send_msg)
             #self.r.sleep() 최대한 빠른 속도로 동작하기 위하여 주석처리
         self.ser.close()
 if __name__ == '__main__':

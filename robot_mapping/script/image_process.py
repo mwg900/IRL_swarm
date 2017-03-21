@@ -54,8 +54,8 @@ class Listener():
         if self.template.shape[0] is 0:
             raise AssertionError
         
-        self.r = rospy.Rate(10) # 10hz
-        
+        self.r = rospy.Rate(5) # 10hz
+        self.count = 0
     #IMU 토픽 콜백(지자기값 출력)
     def imu_callback(self, imu):
         quaternion = (
@@ -175,6 +175,7 @@ class Listener():
                 s1_theta = self.ang[0]
                 cv2.line(dst_image, (s1_theta*2, 0), (s1_theta*2, thresh.shape[0]), (255,0,255), 1)
                 s1_ROI = mask[0:mask.shape[0], (s1_theta-30)*2 :(s1_theta+30)*2]
+                cv2.imshow('s1',s1_ROI)
                 #case_s2
                 s2_theta = self.ang[1]
                 cv2.line(dst_image, (s2_theta*2, 0), (s2_theta*2, thresh.shape[0]), (100,23,245), 1)
@@ -220,7 +221,7 @@ class Listener():
                 if found[0] >500000:                #매칭 스코어가 일정값 이상일 경우
                     (startX, startY) = ((maxLoc[0] * r), (maxLoc[1] * r))
                     (endX, endY) = (((maxLoc[0] + self.tW) * r), ((maxLoc[1] + self.tH) * r))
-                    tmp_X = int((endX + startX)/2)
+                    tmp_X = int(((s1_theta-30)*2+int(endX)) + ((s1_theta-30)*2+int(startX))/2)
                     tmp_Y = int(startY-((endY-startY)/2))
                     dist_tmp = 1000; #임의값
                     #cv2.rectangle(s1_ROI, (5, 5), (30, 30), (255,255,255), 1)    #사각형 출력
@@ -262,15 +263,17 @@ class Listener():
                     position.real_ang = 180             #실제 슬레이브 로봇 각도
                     position.real_dist = 1.0            #실제 슬레이브 로봇 거리
                     position.sig_timing = self.ang[0]      #노이즈
-                    self.pub.publish(position)          # < r_LOS, phi_LOS, theta > 퍼블리시 
-                
+                    self.count += 1
+                    if self.count > 5:
+                        self.pub.publish(position)          # < r_LOS, phi_LOS, theta > 퍼블리시 
+                        self.count = 0
                  #Magnetic info line draw 
                 mag = (self.yaw)*2  #지자기 각도 yaw. 이미지 크기 때문에 마지막에 2를 곱해주어야 함.
                 cv2.line(dst_image, (mag, 0), (mag, self.height*2), (152,225,87), 1)
                 
                 cv2.imshow("dst_image",dst_image)
                 cv2.waitKey(1)
-            self.r.sleep()
+        self.r.sleep()
 #메인문 시작        
 if __name__ == '__main__':
     main = Listener()              #클래스 시작
