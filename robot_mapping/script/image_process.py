@@ -56,6 +56,7 @@ class Listener():
         
         self.r = rospy.Rate(5) # 10hz
         self.count = 0
+        
     #IMU 토픽 콜백(지자기값 출력)
     def imu_callback(self, imu):
         quaternion = (
@@ -70,12 +71,13 @@ class Listener():
         if self.yaw < 0:
             self.yaw = 360+self.yaw         #-179~179의 값을 0~359의 값으로 변경
             
-    #Laser 토픽 콜백(실질적인 영상처리 수행)
+    #Laser 토픽 콜백
     def scan_callback(self, LaserScan):
         #topic 복사
         self.scan_msg = LaserScan
         self.F = True
         
+    #Zigbee signal 토픽 콜백 
     def zigbee_callback(self, Serialmsg):
         elapsed_time = (Serialmsg.time.data - self.scan_msg.header.stamp).to_sec()* 1e-3
         Ka = -539      #-(360+179) 
@@ -90,6 +92,80 @@ class Listener():
         elif Serialmsg.id == 3:
             self.ang[2] = angle
         '''     
+        
+        
+    #template 매칭 함수     
+    def matching(self, slave_id, slave_ROI, theta):
+        #Matching 시작
+        ranges = self.scan_msg.ranges
+        found = None
+    
+        # loop over the scales of the image
+        for scale in np.linspace(0.8, 1.8, 5)[::-1]:                           #30%의 사이즈까지 총 3번 줄이기.
+            # resize the image according to the scale, and keep track of the ratio of the reizing
+            resized = imutils.resize(slave_ROI, width = int(slave_ROI.shape[1] * scale))
+            r = slave_ROI.shape[1] / float(resized.shape[1])            #ratio
+        
+            # if the resized image is smaller than the template, then break from the loop
+            if resized.shape[0] < self.tH or resized.shape[1] < self.tW:                      #이미지의 크기보다 작아지면 매칭 종료
+                break
+        
+            # detect edges in the resized, grayscale image and apply template matching to find the template in the image
+            edged = resized
+            #edged = cv2.Canny(resized, 50, 200)
+            result = cv2.matchTemplate(edged, self.template, cv2.TM_CCOEFF)                #본격적인 매칭 시작
+            (_, maxVal, _, maxLoc) = cv2.minMaxLoc(result)                            #4개의 리턴 값 중 2개만 사용. 각각 맥시멈 스코어, 좌표 리턴
+        
+            # if we have found a new maximum correlation value, then ipdate the bookkeeping variable
+            if found is None or maxVal > found[0]:        #새로운, 더욱 매칭이 잘 맞는 것을 찾으면 업데이트
+                found = (maxVal, maxLoc, r)
+                
+        # unpack the bookkeeping varaible and compute the (x, y) coordinates of the bounding box based on the resized ratio
+        (_, maxLoc, r) = found
+        
+        
+        if found[0] >500000:                #매칭 스코어가 일정값 이상일 경우
+            (startX, startY) = ((maxLoc[0] * r), (maxLoc[1] * r))
+            (endX, endY) = (((maxLoc[0] + self.tW) * r), ((maxLoc[1] + self.tH) * r))
+            tmp_X = (theta-30)*2+int((endX+startX)/2)
+            tmp_Y = int(startY-((endY-startY)/2))
+            dist_tmp = 1000; #임의값
+        
+            #queue 최단거리 계산 
+            for (x,y) in self.pts:
+                dist = math.sqrt(pow(tmp_X-x,2)+pow(tmp_Y-y,2))
+                if dist < dist_tmp:
+                    self.cen_X = x
+                    self.cen_Y = y
+                    dist_tmp = dist
+            
+            self.pts.clear()
+         
+            #Slave 로봇 위치 정보 리턴 및 퍼블리시
+            #cv2.circle(dst_image, (self.cen_X, self.cen_Y+5), 1, (0,255,0), 18,-1)                   #원 출력
+            cv2.rectangle(self.dst_image, ((theta-30)*2+int(startX), int(startY)), ((theta-30)*2+int(endX), int(endY)), (0, 255, 0), 1)    #사각형 출력  
+            
+            i=0
+            while ranges[self.cen_X/2+i] == 0.0:            #dist 값이 0(inf)일 경우 다음 픽셀의 거리 측정      
+                if i<0:
+                    i-=1
+                else :
+                    i+=1
+                    if i is 2:
+                        i=-1
+                        
+            dist = ranges[self.cen_X/2+i]+0.075
+            ang = self.cen_X/2
+            srange = "%.2f"%(dist)+'m'
+            text = "Id:%d"%slave_id, ang, "Y :%d"%self.cen_Y, srange
+            cv2.putText(self.dst_image, str(text), (self.cen_X,self.cen_Y), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
+            return ang, dist
+        #임시값 발부
+        NONE = 9999
+        return NONE, NONE
+
+
+    #main process
     def image_process(self):
         while not rospy.is_shutdown():
             if self.F is True:
@@ -113,8 +189,8 @@ class Listener():
                 #cv2.imshow("root_scale",root_scale)
                 
                 # Blurling =================================================
-                dst_image = imutils.resize(root_scale, self.width*2,self.height*2)
-                blureed_scale_zoom = cv2.GaussianBlur(dst_image, (11, 7), 0)
+                self.dst_image = imutils.resize(root_scale, self.width*2,self.height*2)
+                blureed_scale_zoom = cv2.GaussianBlur(self.dst_image, (11, 7), 0)
                 #cv2.imshow("blurred",blureed_scale_zoom)
                 
                 
@@ -145,21 +221,21 @@ class Listener():
                     #Contour 크기 측정 조건문====================================================================
                     
                     #elif (100 < int(y) and int(y) <= 230 ) and (8 < diameter and diameter < 17) :# 거리가 100~230, 지름이 8~17일 시 윤곽선 출력
-                    #    cv2.drawContours(dst_image,[cnt],-1,(0,255,0),1)
+                    #    cv2.drawContours(self.dst_image,[cnt],-1,(0,255,0),1)
                     #    self.pts.appendleft(center)                                 #큐에 center 좌표 저장
                     #    print (diameter)
                     elif (240 < int(y) and int(y) <= 280) and (15 < diameter and diameter < 24) :
-                        cv2.drawContours(dst_image,[cnt],-1,(0,255,255),1)
+                        cv2.drawContours(self.dst_image,[cnt],-1,(0,255,255),1)
                         self.pts.appendleft(center)
-                        print (diameter)
+                        #print (diameter)
                     elif (280 < int(y) and int(y) <= 350) and (20 < diameter and diameter < 47) :
-                        cv2.drawContours(dst_image,[cnt],-1,(255,0,0),1) 
+                        cv2.drawContours(self.dst_image,[cnt],-1,(255,0,0),1) 
                         self.pts.appendleft(center)
-                        print (diameter)
+                        #print (diameter)
                     elif (350 < int(y) and int(y) <= 400) and (43 < diameter and diameter < 65) :
-                        cv2.drawContours(dst_image,[cnt],-1,(255,0,255),1) 
+                        cv2.drawContours(self.dst_image,[cnt],-1,(255,0,255),1) 
                         self.pts.appendleft(center)
-                        print (diameter)
+                        #print (diameter)
                     #=================================================================================    
                     else:
                         cv2.drawContours(mask,[cnt],-1,0,-1)                                                                                     #마스킹. 검정색으로 해당 덩어리 삭제
@@ -173,86 +249,27 @@ class Listener():
                 slave_id = 1
                 #case_s1
                 s1_theta = self.ang[0]
-                cv2.line(dst_image, (s1_theta*2, 0), (s1_theta*2, thresh.shape[0]), (255,0,255), 1)
+                cv2.line(self.dst_image, (s1_theta*2, 0), (s1_theta*2, thresh.shape[0]), (255,0,255), 1)
                 s1_ROI = mask[0:mask.shape[0], (s1_theta-30)*2 :(s1_theta+30)*2]
-                cv2.imshow('s1',s1_ROI)
                 #case_s2
                 s2_theta = self.ang[1]
-                cv2.line(dst_image, (s2_theta*2, 0), (s2_theta*2, thresh.shape[0]), (100,23,245), 1)
+                cv2.line(self.dst_image, (s2_theta*2, 0), (s2_theta*2, thresh.shape[0]), (100,23,245), 1)
                 s2_ROI = mask[0:mask.shape[0], (s2_theta-30)*2 :(s2_theta+30)*2]
                 #case_s3
                 s3_theta = self.ang[2]
-                cv2.line(dst_image, (s3_theta*2, 0), (s3_theta*2, thresh.shape[0]), (200,51,28), 1)
+                cv2.line(self.dst_image, (s3_theta*2, 0), (s3_theta*2, thresh.shape[0]), (200,51,28), 1)
                 s3_ROI = mask[0:mask.shape[0], (s3_theta-30)*2 :(s3_theta+30)*2]
                 
-                #ROI = np.hstack([s1_ROI, s2_ROI, s3_ROI])
-                #cv2.imshow('ROI',ROI)
-                
-                
-                #Matching 시작
-                # load the image image, convert it to grayscale, and detect edges
-                #template = cv2.imread("/home/moon/pattern.png")
-                found = None
-            
-                # loop over the scales of the image
-                for scale in np.linspace(0.8, 1.8, 5)[::-1]:                           #30%의 사이즈까지 총 3번 줄이기.
-                    # resize the image according to the scale, and keep track of the ratio of the reizing
-                    resized = imutils.resize(s1_ROI, width = int(s1_ROI.shape[1] * scale))
-                    r = s1_ROI.shape[1] / float(resized.shape[1])            #ratio
-                
-                    # if the resized image is smaller than the template, then break from the loop
-                    if resized.shape[0] < self.tH or resized.shape[1] < self.tW:                      #이미지의 크기보다 작아지면 매칭 종료
-                        break
-                
-                    # detect edges in the resized, grayscale image and apply template matching to find the template in the image
-                    edged = resized
-                    #edged = cv2.Canny(resized, 50, 200)
-                    result = cv2.matchTemplate(edged, self.template, cv2.TM_CCOEFF)                #본격적인 매칭 시작
-                    (_, maxVal, _, maxLoc) = cv2.minMaxLoc(result)                            #4개의 리턴 값 중 2개만 사용. 각각 맥시멈 스코어, 좌표 리턴
-                
-                    # if we have found a new maximum correlation value, then ipdate the bookkeeping variable
-                    if found is None or maxVal > found[0]:        #새로운, 더욱 매칭이 잘 맞는 것을 찾으면 업데이트
-                        found = (maxVal, maxLoc, r)
-                        
-                # unpack the bookkeeping varaible and compute the (x, y) coordinates of the bounding box based on the resized ratio
-                (_, maxLoc, r) = found
+                ROI = np.hstack([s1_ROI, s2_ROI, s3_ROI])
+                cv2.imshow('ROI',ROI)
                 
                 position = Slavepos()
-                if found[0] >500000:                #매칭 스코어가 일정값 이상일 경우
-                    (startX, startY) = ((maxLoc[0] * r), (maxLoc[1] * r))
-                    (endX, endY) = (((maxLoc[0] + self.tW) * r), ((maxLoc[1] + self.tH) * r))
-                    tmp_X = (s1_theta-30)*2+int((endX+startX)/2)
-                    tmp_Y = int(startY-((endY-startY)/2))
-                    dist_tmp = 1000; #임의값
-                    #cv2.rectangle(s1_ROI, (5, 5), (30, 30), (255,255,255), 1)    #사각형 출력
-                
-                    #queue 최단거리 계산 
-                    for (x,y) in self.pts:
-                        dist = math.sqrt(pow(tmp_X-x,2)+pow(tmp_Y-y,2))
-                        if dist < dist_tmp:
-                            self.cen_X = x
-                            self.cen_Y = y
-                            dist_tmp = dist
-                    
-                    self.pts.clear()
-                    #Slave 로봇 위치 정보 리턴 및 퍼블리시
-                    #cv2.circle(dst_image, (self.cen_X, self.cen_Y+5), 1, (0,255,0), 18,-1)                   #원 출력
-                    cv2.rectangle(dst_image, ((s1_theta-30)*2+int(startX), int(startY)), ((s1_theta-30)*2+int(endX), int(endY)), (0, 255, 0), 1)    #사각형 출력  
-                    
-                    i=0
-                    while ranges[self.cen_X/2+i] == 0.0:            #dist 값이 0(inf)일 경우 다음 픽셀의 거리 측정      
-                        if i<0:
-                            i-=1
-                        else :
-                            i+=1
-                            if i is 2:
-                                i=-1
-                                
-                    srange = "%.2f"%(ranges[self.cen_X/2+i]+0.075)+'m'
-                    text = "Id:%d"%slave_id, self.cen_X/2, "Y :%d"%self.cen_Y, srange
-                    cv2.putText(dst_image, str(text), (self.cen_X,self.cen_Y), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
-                    
-                    
+                position.m_ang = self.yaw
+                s1_ang, s1_dist = self.matching(1, s1_ROI, s1_theta)
+                s2_ang, s2_dist = self.matching(2, s2_ROI, s2_theta)
+                s3_ang, s3_dist = self.matching(3, s3_ROI, s3_theta)
+                '''
+                if 1 == 1: #임시    
                     position.m_ang = self.yaw
                     position.s1_dist = ranges[self.cen_X/2+i]+0.075 
                     position.s1_ang = (self.cen_X/2 + position.m_ang) -180
@@ -267,11 +284,12 @@ class Listener():
                     if self.count > 5:
                         self.pub.publish(position)          # < r_LOS, phi_LOS, theta > 퍼블리시 
                         self.count = 0
+                '''
                  #Magnetic info line draw 
                 mag = (self.yaw)*2  #지자기 각도 yaw. 이미지 크기 때문에 마지막에 2를 곱해주어야 함.
-                cv2.line(dst_image, (mag, 0), (mag, self.height*2), (152,225,87), 1)
+                cv2.line(self.dst_image, (mag, 0), (mag, self.height*2), (152,225,87), 1)
                 
-                cv2.imshow("dst_image",dst_image)
+                cv2.imshow("dst_image",self.dst_image)
                 cv2.waitKey(1)
         self.r.sleep()
 #메인문 시작        
