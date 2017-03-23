@@ -183,7 +183,7 @@ class Listener():
 
 
     #ROI 변경으로 인한 추적모드
-    def matching_test(self, line, slave_ROI, theta):    
+    def matching_test(self,slave_ROI, theta):    
         #Matching 시작
         ranges = self.scan_msg.ranges
         found = None
@@ -215,18 +215,8 @@ class Listener():
         if found[0] >500000:                #매칭 스코어가 일정값 이상일 경우
             (startX, startY) = ((maxLoc[0] * r), (maxLoc[1] * r))
             (endX, endY) = (((maxLoc[0] + self.tW) * r), ((maxLoc[1] + self.tH) * r))
-            tmp_X = (theta-30)*2+int((endX+startX)/2)
-            tmp_Y = int(startY-((endY-startY)/2))
-            dist_tmp = 1000; #임의값
-        
-            #queue 최단거리 계산 
-            for (x,y) in self.pts:
-                dist = math.sqrt(pow(tmp_X-x,2)+pow(tmp_Y-y,2))
-                if dist < dist_tmp:
-                    cen_X = x
-                    cen_Y = y
-                    dist_tmp = dist
-            
+            cen_X = (theta-30)*2+int((endX+startX)/2)
+            cen_Y = int(startY-((endY-startY)/2))
             
             cv2.rectangle(self.dst_image, ((theta-30)*2+int(startX), int(startY)), ((theta-30)*2+int(endX), int(endY)), (0, 0, 255), 1)    #사각형 출력  
             
@@ -246,10 +236,11 @@ class Listener():
             text =  ang, "Y :%d"%cen_Y, srange
             cv2.putText(self.dst_image, str(text), ((theta-30)*2+int(endX), int(endY)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
             
-            if (line is 179) and (line == ang) and (cen_Y >200):
+            
+            if (theta is 180) and (theta == ang) and (cen_Y >200):
                 self.s1_x_new = ((theta-30)*2+int(endX)+((theta-30)*2+int(startX)))/2
                 self.s1_y_new = (int(endY)+int(startY))/2
-                print(self.s1_x_new, self.s1_y_new)
+                #print(self.s1_x_new, self.s1_y_new)
                 self.s1_mode = 2 #트래킹 모드 시작
             '''    
             if (line is 190) and (line == ang):
@@ -261,10 +252,10 @@ class Listener():
              
              
              
-    def tracking(self,slave_id, slave_ROI, slave_x, slave_y):
+    def tracking(self, slave_id, slave_ROI, slave_x, slave_y):
         ranges = self.scan_msg.ranges
         found = None
-    
+        print (slave_x, slave_y)
         # loop over the scales of the image
         for scale in np.linspace(0.9, 1.8, 5)[::-1]:                           #30%의 사이즈까지 총 3번 줄이기.
             # resize the image according to the scale, and keep track of the ratio of the reizing
@@ -292,8 +283,8 @@ class Listener():
         if found[0] >500000:                #매칭 스코어가 일정값 이상일 경우
             (startX, startY) = ((maxLoc[0] * r), (maxLoc[1] * r))
             (endX, endY) = (((maxLoc[0] + self.tW) * r), ((maxLoc[1] + self.tH) * r))
-            tmp_X = (slave_x-35)*2+int((endX+startX)/2)
-            tmp_Y = (slave_y-25)*2+int(startY-((endY-startY)/2))
+            tmp_X = (slave_x-35)+int((endX+startX)/2)
+            tmp_Y = (slave_y-25)+int(startY-((endY-startY)/2))
             dist_tmp = 1000; #임의값
         
             #queue 최단거리 계산 
@@ -328,13 +319,15 @@ class Listener():
             cv2.putText(self.dst_image, str(text), ((slave_x-35)+int(endX), (slave_y-25)+int(endY)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
             phi_LOS = (ang + self.yaw)-180
             return phi_LOS, dist
-
+        
         if slave_id == 1:
             return self.s1_ang_old, self.s1_dist_old
         elif slave_id == 2:
             return self.s2_ang_old, self.s2_dist_old
         else:
             return self.s3_ang_old, self.s3_dist_old
+
+
 
     #main process
     def image_process(self):
@@ -422,10 +415,10 @@ class Listener():
                     s1_theta = self.ang[0]
                     cv2.line(self.dst_image, (s1_theta*2, 0), (s1_theta*2, thresh.shape[0]), (255,0,255), 1)
                     s1_ROI = mask[0:mask.shape[0], (s1_theta-30)*2 :(s1_theta+30)*2]
-                    self.matching_test(179,s1_ROI,s1_theta) #matching
+                    self.matching_test(s1_ROI,s1_theta) #matching
                 else:
                     s1_ROI_new = mask[self.s1_y_new-25:self.s1_y_new+25, self.s1_x_new-35:self.s1_x_new+35]                 # 새 ROI_mini 지정 
-                    #cv2.imshow('s1_ROI_new',s1_ROI_new)
+                    cv2.imshow('s1_ROI_new',s1_ROI_new)
                     position.s1_ang, position.s1_dist = self.tracking(1,s1_ROI_new,self.s1_x_new,self.s1_y_new)
                     
                     
