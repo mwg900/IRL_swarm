@@ -41,7 +41,8 @@ class Listener():
         
         #Tracking init
         self.s1_mode = 1
-        
+        self.s2_mode = 1
+        self.s3_mode = 1
         
         #Image Process init
         self.width = 360
@@ -107,83 +108,8 @@ class Listener():
         '''     
         
         
-    #template 매칭 함수     
-    def matching(self, slave_id, slave_ROI, theta):
-        #Matching 시작
-        ranges = self.scan_msg.ranges
-        found = None
-    
-        # loop over the scales of the image
-        for scale in np.linspace(0.8, 1.8, 5)[::-1]:                           #30%의 사이즈까지 총 3번 줄이기.
-            # resize the image according to the scale, and keep track of the ratio of the reizing
-            resized = imutils.resize(slave_ROI, width = int(slave_ROI.shape[1] * scale))
-            r = slave_ROI.shape[1] / float(resized.shape[1])            #ratio
-        
-            # if the resized image is smaller than the template, then break from the loop
-            if resized.shape[0] < self.tH or resized.shape[1] < self.tW:                      #이미지의 크기보다 작아지면 매칭 종료
-                break
-        
-            # detect edges in the resized, grayscale image and apply template matching to find the template in the image
-            edged = resized
-            #edged = cv2.Canny(resized, 50, 200)
-            result = cv2.matchTemplate(edged, self.template, cv2.TM_CCOEFF)                #본격적인 매칭 시작
-            (_, maxVal, _, maxLoc) = cv2.minMaxLoc(result)                            #4개의 리턴 값 중 2개만 사용. 각각 맥시멈 스코어, 좌표 리턴
-        
-            # if we have found a new maximum correlation value, then ipdate the bookkeeping variable
-            if found is None or maxVal > found[0]:        #새로운, 더욱 매칭이 잘 맞는 것을 찾으면 업데이트
-                found = (maxVal, maxLoc, r)
-                
-        # unpack the bookkeeping varaible and compute the (x, y) coordinates of the bounding box based on the resized ratio
-        (_, maxLoc, r) = found
-        
-        
-        if found[0] >500000:                #매칭 스코어가 일정값 이상일 경우
-            (startX, startY) = ((maxLoc[0] * r), (maxLoc[1] * r))
-            (endX, endY) = (((maxLoc[0] + self.tW) * r), ((maxLoc[1] + self.tH) * r))
-            tmp_X = (theta-30)*2+int((endX+startX)/2)
-            tmp_Y = int(startY-((endY-startY)/2))
-            dist_tmp = 1000; #임의값
-        
-            #queue 최단거리 계산 
-            for (x,y) in self.pts:
-                dist = math.sqrt(pow(tmp_X-x,2)+pow(tmp_Y-y,2))
-                if dist < dist_tmp:
-                    cen_X = x
-                    cen_Y = y
-                    dist_tmp = dist
-            
-            
-            cv2.rectangle(self.dst_image, ((theta-30)*2+int(startX), int(startY)), ((theta-30)*2+int(endX), int(endY)), (0, 0, 255), 1)    #사각형 출력  
-            
-            i=0
-            while ranges[cen_X/2+i] == 0.0:            #dist 값이 0(inf)일 경우 다음 픽셀의 거리 측정      
-                if i<0:
-                    i-=1
-                else :
-                    i+=1
-                    if i is 2:
-                        i=-1
-                        
-            dist = ranges[cen_X/2+i]+0.075
-            ang = cen_X/2
-            srange = "%.2f"%(dist)+'m'
-            text = "Id:%d"%slave_id, ang, "Y :%d"%cen_Y, srange
-            
-            cv2.putText(self.dst_image, str(text), ((theta-30)*2+int(endX), int(endY)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
-            #cv2.putText(self.dst_image, str(text), (cen_X,cen_Y), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
-            phi_LOS = (ang + self.yaw)-180
-            return phi_LOS, dist
-
-        if slave_id == 1:
-            return self.s1_ang_old, self.s1_dist_old
-        elif slave_id == 2:
-            return self.s2_ang_old, self.s2_dist_old
-        else:
-            return self.s3_ang_old, self.s3_dist_old
-
-
-    #ROI 변경으로 인한 추적모드
-    def matching_test(self,slave_ROI, theta):    
+    #template 매칭, robot find 함수     
+    def matching(self,slave_ROI, theta):    
         #Matching 시작
         ranges = self.scan_msg.ranges
         found = None
@@ -237,27 +163,31 @@ class Listener():
             cv2.putText(self.dst_image, str(text), ((theta-30)*2+int(endX), int(endY)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
             
             
-            if (theta is 180) and (theta == ang) and (cen_Y >200):
+            if (theta == self.ang[0]) and (theta == ang) and (cen_Y >200):
                 self.s1_x_new = ((theta-30)*2+int(endX)+((theta-30)*2+int(startX)))/2
                 self.s1_y_new = (int(endY)+int(startY))/2
                 #print(self.s1_x_new, self.s1_y_new)
                 self.s1_mode = 2 #트래킹 모드 시작
-            '''    
-            if (line is 190) and (line == ang):
+                
+            if (theta == self.ang[1]) and (theta == ang) and (cen_Y >200):
+                self.s2_x_new = ((theta-30)*2+int(endX)+((theta-30)*2+int(startX)))/2
+                self.s2_y_new = (int(endY)+int(startY))/2
+                #print(self.s1_x_new, self.s1_y_new)
                 self.s2_mode = 2 #트래킹 모드 시작
-            
-            if (line is 190) and (line == ang):
-                self.s2_mode = 2 #트래킹 모드 시작
-            '''
-             
+                
+            if (theta == self.ang[2]) and (theta == ang) and (cen_Y >200):
+                self.s3_x_new = ((theta-30)*2+int(endX)+((theta-30)*2+int(startX)))/2
+                self.s3_y_new = (int(endY)+int(startY))/2
+                #print(self.s1_x_new, self.s1_y_new)
+                self.s3_mode = 2 #트래킹 모드 시작
              
              
     def tracking(self, slave_id, slave_ROI, slave_x, slave_y):
         ranges = self.scan_msg.ranges
         found = None
-        print (slave_x, slave_y)
+        #print (slave_x, slave_y)
         # loop over the scales of the image
-        for scale in np.linspace(0.9, 1.8, 5)[::-1]:                           #30%의 사이즈까지 총 3번 줄이기.
+        for scale in np.linspace(1.2, 2.0, 5)[::-1]:                           #30%의 사이즈까지 총 3번 줄이기.
             # resize the image according to the scale, and keep track of the ratio of the reizing
             resized = imutils.resize(slave_ROI, width = int(slave_ROI.shape[1] * scale))
             r = slave_ROI.shape[1] / float(resized.shape[1])            #ratio
@@ -280,7 +210,7 @@ class Listener():
         (_, maxLoc, r) = found
         
         
-        if found[0] >500000:                #매칭 스코어가 일정값 이상일 경우
+        if found[0] >200000:                #매칭 스코어가 일정값 이상일 경우
             (startX, startY) = ((maxLoc[0] * r), (maxLoc[1] * r))
             (endX, endY) = (((maxLoc[0] + self.tW) * r), ((maxLoc[1] + self.tH) * r))
             tmp_X = (slave_x-35)+int((endX+startX)/2)
@@ -296,9 +226,18 @@ class Listener():
                     dist_tmp = dist
             
             cv2.rectangle(self.dst_image, ((slave_x-35)+int(startX), (slave_y-25)+int(startY)), ((slave_x-35)+int(endX), (slave_y-25)+int(endY)), (0, 255, 0), 1)    #사각형 출력  
-            cv2.imshow('s1_ROI_new',slave_ROI)
-            self.s1_x_new = cen_X
-            self.s1_y_new = cen_Y
+            #cv2.imshow('s1_ROI_new',slave_ROI)
+            
+            if slave_id == 1:
+                self.s1_x_new = cen_X
+                self.s1_y_new = cen_Y
+            elif slave_id == 2:
+                self.s2_x_new = cen_X
+                self.s2_y_new = cen_Y
+            elif slave_id == 3:
+                self.s3_x_new = cen_X
+                self.s3_y_new = cen_Y
+            
             
             
             i=0
@@ -324,7 +263,7 @@ class Listener():
             return self.s1_ang_old, self.s1_dist_old
         elif slave_id == 2:
             return self.s2_ang_old, self.s2_dist_old
-        else:
+        elif slave_id == 3:
             return self.s3_ang_old, self.s3_dist_old
 
 
@@ -410,45 +349,44 @@ class Listener():
                 position = Slavepos()
                 position.m_ang = self.yaw
                 # Tracking
-                if self.s1_mode is 1:
+                
                 #case_s1
+                if self.s1_mode is 1:
                     s1_theta = self.ang[0]
                     cv2.line(self.dst_image, (s1_theta*2, 0), (s1_theta*2, thresh.shape[0]), (255,0,255), 1)
                     s1_ROI = mask[0:mask.shape[0], (s1_theta-30)*2 :(s1_theta+30)*2]
-                    self.matching_test(s1_ROI,s1_theta) #matching
+                    self.matching(s1_ROI,s1_theta) #matching
                 else:
                     s1_ROI_new = mask[self.s1_y_new-25:self.s1_y_new+25, self.s1_x_new-35:self.s1_x_new+35]                 # 새 ROI_mini 지정 
-                    cv2.imshow('s1_ROI_new',s1_ROI_new)
-                    position.s1_ang, position.s1_dist = self.tracking(1,s1_ROI_new,self.s1_x_new,self.s1_y_new)
-                    
-                    
-                    
-                #case_s2
-                s2_theta = self.ang[1]
-                cv2.line(self.dst_image, (s2_theta*2, 0), (s2_theta*2, thresh.shape[0]), (100,23,245), 1)
-                s2_ROI = mask[0:mask.shape[0], (s2_theta-30)*2 :(s2_theta+30)*2]
+                    #cv2.imshow('s1_ROI_new',s1_ROI_new)
+                    position.s1_ang, position.s1_dist = self.tracking(1,s1_ROI_new,self.s1_x_new,self.s1_y_new)             #tracking
+                   
+                #case_s2 
+                if self.s2_mode is 1:
+                    s2_theta = self.ang[1]
+                    cv2.line(self.dst_image, (s2_theta*2, 0), (s2_theta*2, thresh.shape[0]), (100,23,245), 1)
+                    s2_ROI = mask[0:mask.shape[0], (s2_theta-30)*2 :(s2_theta+30)*2]
+                    self.matching(s2_ROI,s2_theta) #matching
+                else:
+                    s2_ROI_new = mask[self.s2_y_new-25:self.s2_y_new+25, self.s2_x_new-35:self.s2_x_new+35]                 # 새 ROI_mini 지정 
+                    #cv2.imshow('s2_ROI_new',s2_ROI_new)
+                    position.s2_ang, position.s2_dist = self.tracking(2,s2_ROI_new,self.s2_x_new,self.s2_y_new)             #tracking
+                   
                 #case_s3
-                s3_theta = self.ang[2]
-                cv2.line(self.dst_image, (s3_theta*2, 0), (s3_theta*2, thresh.shape[0]), (200,51,28), 1)
-                s3_ROI = mask[0:mask.shape[0], (s3_theta-30)*2 :(s3_theta+30)*2]
-                
+                if self.s3_mode is 1:
+                    s3_theta = self.ang[2]
+                    cv2.line(self.dst_image, (s3_theta*2, 0), (s3_theta*2, thresh.shape[0]), (200,51,28), 1)
+                    s3_ROI = mask[0:mask.shape[0], (s3_theta-30)*2 :(s3_theta+30)*2]
+                    self.matching(s3_ROI,s3_theta) #matching
+                else:
+                    s3_ROI_new = mask[self.s3_y_new-25:self.s3_y_new+25, self.s3_x_new-35:self.s3_x_new+35]                 # 새 ROI_mini 지정 
+                    #cv2.imshow('s3_ROI_new',s3_ROI_new)
+                    position.s3_ang, position.s3_dist = self.tracking(3,s3_ROI_new,self.s3_x_new,self.s3_y_new)             #tracking  
+                              
                 #ROI = np.hstack([s1_ROI, s2_ROI, s3_ROI])
                 #cv2.imshow('ROI',ROI)
                 
-                
-                
-                
-                
-                
-                
-                '''
-                position = Slavepos()
-                
-                position.m_ang = self.yaw
-                position.s1_ang, position.s1_dist = self.matching(1, s1_ROI, s1_theta)
-                position.s2_ang, position.s2_dist = self.matching(2, s2_ROI, s2_theta)
-                position.s3_ang, position.s3_dist = self.matching(3, s3_ROI, s3_theta) 
-                '''
+
                 #temp value update
                 self.s1_ang_old, self.s1_dist_old = position.s1_ang, position.s1_dist
                 self.s2_ang_old, self.s2_dist_old = position.s2_ang, position.s2_dist
