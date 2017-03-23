@@ -241,19 +241,23 @@ class Listener():
                         
             dist = ranges[cen_X/2+i]+0.075
             ang = cen_X/2
-            print(ang)
-            if (line is 179) and (line == ang):
+
+            srange = "%.2f"%(dist)+'m'
+            text =  ang, "Y :%d"%cen_Y, srange
+            cv2.putText(self.dst_image, str(text), ((theta-30)*2+int(endX), int(endY)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
+            
+            if (line is 179) and (line == ang) and (cen_Y >200):
                 self.s1_x_new = ((theta-30)*2+int(endX)+((theta-30)*2+int(startX)))/2
                 self.s1_y_new = (int(endY)+int(startY))/2
-                #print(self.s1_x_new, self.s1_y_new)
+                print(self.s1_x_new, self.s1_y_new)
                 self.s1_mode = 2 #트래킹 모드 시작
-                
+            '''    
             if (line is 190) and (line == ang):
-                self.s1_mode = 2 #트래킹 모드 시작
+                self.s2_mode = 2 #트래킹 모드 시작
             
             if (line is 190) and (line == ang):
-                self.s1_mode = 2 #트래킹 모드 시작
-             
+                self.s2_mode = 2 #트래킹 모드 시작
+            '''
              
              
              
