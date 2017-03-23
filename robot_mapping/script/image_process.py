@@ -323,10 +323,10 @@ class Listener():
                     
                     #Contour 크기 측정 조건문====================================================================
                     
-                    #elif (100 < int(y) and int(y) <= 230 ) and (8 < diameter and diameter < 17) :# 거리가 100~230, 지름이 8~17일 시 윤곽선 출력
-                    #    cv2.drawContours(self.dst_image,[cnt],-1,(0,255,0),1)
-                    #    self.pts.appendleft(center)                                 #큐에 center 좌표 저장
-                    #    print (diameter)
+                    elif (100 < int(y) and int(y) <= 230 ) and (8 < diameter and diameter < 17) :# 거리가 100~230, 지름이 8~17일 시 윤곽선 출력
+                        cv2.drawContours(self.dst_image,[cnt],-1,(0,255,0),1)
+                        self.pts.appendleft(center)                                 #큐에 center 좌표 저장
+                        #print (diameter)
                     elif (240 < int(y) and int(y) <= 280) and (15 < diameter and diameter < 24) :
                         cv2.drawContours(self.dst_image,[cnt],-1,(0,255,255),1)
                         self.pts.appendleft(center)
