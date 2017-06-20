@@ -6,3 +6,7 @@ $ rosrun robot_mapping image_process.py
 
 폴더 권한 수정
 sudo chmod 775 -R ~/catkin_ws
+
+*빨강
+  *녹색
+    *파랑
