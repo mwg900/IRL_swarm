@@ -3,7 +3,7 @@
  
 가제보 시뮬레이션 실행
 -----------------------
-##### $ roslaunch mobile_robot_sim turtlebot_rplidar.launch 
+<pre><code> $ roslaunch mobile_robot_sim turtlebot_rplidar.launch </code></pre>
 
 이미지 프로세스 실행
 ---------------------
