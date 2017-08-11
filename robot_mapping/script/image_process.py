@@ -13,10 +13,12 @@ from collections import deque                               #윤곽선 중점정
 
 
 from sensor_msgs.msg import LaserScan, Imu                  #스캔 메세지
+from nav_msgs.msg import Odometry                           #속도 메세지
 from geometry_msgs.msg import Quaternion                    #지자기 메세지
 from robot_mapping.msg import Serialmsg                     #지그비 수신 메세지
 from robot_mapping.msg import Slavepos                      #지그비 송신 메세지
 import std_msgs
+
 
 
 class Listener():
@@ -27,7 +29,9 @@ class Listener():
         rospy.init_node(node_name)
         #ros topic 구독자 설정 및 콜백함수 정의
         laser_sub = rospy.Subscriber("/scan", LaserScan, self.scan_callback, queue_size= 100)
-        imu_sub = rospy.Subscriber("/imu/data", Imu, self.imu_callback, queue_size= 100)
+        #imu_sub = rospy.Subscriber("/imu/data", Imu, self.imu_callback, queue_size= 100)  #myhars용
+        imu_sub = rospy.Subscriber("/mobile_base/sensors/imu_data", Imu, self.imu_callback, queue_size= 100)
+        vel_sub = rospy.Subscriber("/odom", Odometry, self.odom_callback, queue_size= 100)
         zigbee_sub = rospy.Subscriber("/Serial", Serialmsg, self.zigbee_callback, queue_size= 100)
         self.pub = rospy.Publisher('/position', Slavepos, queue_size=10)
         
@@ -36,8 +40,9 @@ class Listener():
         #SCAN init
         self.F = False
         #Serial init
-        self.ang = [180,135,225]
         
+        #self.ang = [180,135,225]
+        self.ang = [135, 225]
         
         #Tracking init
         self.s1_mode = 1
@@ -52,7 +57,7 @@ class Listener():
         self.pts = deque(maxlen = 20)
         self.avr = deque(maxlen = 100)
         
-        self.template = cv2.imread("../pattern3.png",0)
+        self.template = cv2.imread("/home/moon/pattern3.png",0)
         #self.template = cv2.Canny(self.template, 50, 200)
         (self.tH, self.tW) = self.template.shape[:2]
         #cv2.imshow('pattern',self.template)
@@ -83,7 +88,12 @@ class Listener():
         self.yaw = int(math.degrees(euler[2]))                          #(roll, pitch yaw) 중 yaw만 리턴
         if self.yaw < 0:
             self.yaw = 360+self.yaw         #-179~179의 값을 0~359의 값으로 변경
-            
+        self.ang_vel = imu.angular_velocity.z
+       
+    #Odometry 콜백     
+    def odom_callback(self, odom):
+        self.m_lvel = odom.twist.twist.linear.x
+    
     #Laser 토픽 콜백
     def scan_callback(self, LaserScan):
         #topic 복사
@@ -175,11 +185,11 @@ class Listener():
                 #print(self.s1_x_new, self.s1_y_new)
                 self.s2_mode = 2 #트래킹 모드 시작
                 
-            if (theta == self.ang[2]) and (theta == ang) and (cen_Y >200):
-                self.s3_x_new = ((theta-30)*2+int(endX)+((theta-30)*2+int(startX)))/2
-                self.s3_y_new = (int(endY)+int(startY))/2
-                #print(self.s1_x_new, self.s1_y_new)
-                self.s3_mode = 2 #트래킹 모드 시작
+#             if (theta == self.ang[2]) and (theta == ang) and (cen_Y >200):
+#                 self.s3_x_new = ((theta-30)*2+int(endX)+((theta-30)*2+int(startX)))/2
+#                 self.s3_y_new = (int(endY)+int(startY))/2
+#                 #print(self.s1_x_new, self.s1_y_new)
+#                 self.s3_mode = 2 #트래킹 모드 시작
              
              
     def tracking(self, slave_id, slave_ROI, slave_x, slave_y):
@@ -372,17 +382,17 @@ class Listener():
                     #cv2.imshow('s2_ROI_new',s2_ROI_new)
                     position.s2_ang, position.s2_dist = self.tracking(2,s2_ROI_new,self.s2_x_new,self.s2_y_new)             #tracking
                    
-                #case_s3
-                if self.s3_mode is 1:
-                    s3_theta = self.ang[2]
-                    cv2.line(self.dst_image, (s3_theta*2, 0), (s3_theta*2, thresh.shape[0]), (200,51,28), 1)
-                    s3_ROI = mask[0:mask.shape[0], (s3_theta-30)*2 :(s3_theta+30)*2]
-                    self.matching(s3_ROI,s3_theta) #matching
-                else:
-                    s3_ROI_new = mask[self.s3_y_new-25:self.s3_y_new+25, self.s3_x_new-35:self.s3_x_new+35]                 # 새 ROI_mini 지정 
-                    #cv2.imshow('s3_ROI_new',s3_ROI_new)
-                    position.s3_ang, position.s3_dist = self.tracking(3,s3_ROI_new,self.s3_x_new,self.s3_y_new)             #tracking  
-                              
+#                 #case_s3
+#                 if self.s3_mode is 1:
+#                     s3_theta = self.ang[2]
+#                     cv2.line(self.dst_image, (s3_theta*2, 0), (s3_theta*2, thresh.shape[0]), (200,51,28), 1)
+#                     s3_ROI = mask[0:mask.shape[0], (s3_theta-30)*2 :(s3_theta+30)*2]
+#                     self.matching(s3_ROI,s3_theta) #matching
+#                 else:
+#                     s3_ROI_new = mask[self.s3_y_new-25:self.s3_y_new+25, self.s3_x_new-35:self.s3_x_new+35]                 # 새 ROI_mini 지정 
+#                     #cv2.imshow('s3_ROI_new',s3_ROI_new)
+#                     position.s3_ang, position.s3_dist = self.tracking(3,s3_ROI_new,self.s3_x_new,self.s3_y_new)             #tracking  
+#                               
                 #ROI = np.hstack([s1_ROI, s2_ROI, s3_ROI])
                 #cv2.imshow('ROI',ROI)
                 
@@ -390,8 +400,10 @@ class Listener():
                 #temp value update
                 self.s1_ang_old, self.s1_dist_old = position.s1_ang, position.s1_dist
                 self.s2_ang_old, self.s2_dist_old = position.s2_ang, position.s2_dist
-                self.s3_ang_old, self.s3_dist_old = position.s3_ang, position.s3_dist
-                
+                #self.s3_ang_old, self.s3_dist_old = position.s3_ang, position.s3_dist
+                position.m_lvel = self.m_lvel
+                position.m_avel = self.ang_vel
+                position.m_ang = self.yaw
                 #Graph 출력 용 변수들 
                 position.recog_ang = position.s1_ang + 180   #인식된 슬레이브 로봇 각도(여기선 지자기센서가 없으므로 180을 더해줌)
                 position.real_ang = 180             #실제 슬레이브 로봇 각도
@@ -401,7 +413,6 @@ class Listener():
                 if self.count > 4:
                     self.pub.publish(position)          # < r_LOS, phi_LOS, theta > 퍼블리시 
                     self.count = 0
-                
                 
                  #Magnetic info line draw 
                 mag = (self.yaw)*2  #지자기 각도 yaw. 이미지 크기 때문에 마지막에 2를 곱해주어야 함.

@@ -20,16 +20,19 @@ class zigbee:
         self.count = 0
     def callback(self, msg):
         
+        m_lvel = "%04.0f" %(msg.m_lvel)
+        m_avel = "%04.0f" %(msg.m_avel)
         m_ang =         "%03d"   %(msg.m_ang)
         s1_dist_mm =    "%04.0f" %(msg.s1_dist*1000)
         s2_dist_mm =    "%04.0f" %(msg.s2_dist*1000)
-        s3_dist_mm =    "%04.0f" %(msg.s3_dist*1000)
+        #s3_dist_mm =    "%04.0f" %(msg.s3_dist*1000)
         s1_ang =        "%03d"   %(msg.s1_ang)
         s2_ang =        "%03d"   %(msg.s2_ang)
-        s3_ang =        "%03d"   %(msg.s3_ang)
+        #s3_ang =        "%03d"   %(msg.s3_ang)
         
-        self.send_msg = "<"+m_ang+","+s1_dist_mm+","+s1_ang+","+s2_dist_mm+","+s2_ang+","+s3_dist_mm+","+s3_ang+">" 
-        print(self.send_msg)    
+        #self.send_msg = "<"+m_ang+","+s1_dist_mm+","+s1_ang+","+s2_dist_mm+","+s2_ang+","+s3_dist_mm+","+s3_ang+">" 
+        self.send_msg = "<"+m_lvel+","+m_avel+","+s1_dist_mm+","+s1_ang+","+s2_dist_mm+","+s2_ang+">" 
+        print(self.send_msg)
         self.ser.writelines(self.send_msg)
         
     def talker(self):
