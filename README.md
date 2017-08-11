@@ -1,5 +1,18 @@
 군집로봇 위치인식
 ===============
+PACKAGES 
+ 
+mobile_robot_sim : simulation 
+ 
+myahrs_driver : imu package 
+ 
+robot_mapping : multi robot localization 
+  - image_process.py : recognize local of slave(cylinder) using opencv 
+  - swarm_marker.py : just marking in rviz visualizer (not neccesary) 
+  - zigbee_serial.py : for communication 
+ 
+swarm_lidar : rplidar driver package 
+ 
 
 시뮬레이션
 ===============
