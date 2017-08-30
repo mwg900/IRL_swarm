@@ -268,8 +268,8 @@ class Listener():
             srange = "%.2f"%(dist)+'m'
             text = "Id:%d"%slave_id, ang, "Y :%d"%cen_Y, srange
             cv2.putText(self.dst_image, str(text), ((slave_x-35)+int(endX), (slave_y-25)+int(endY)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),1)
-            phi_LOS = (ang + self.yaw)-180
-            #phi_LOS =ang-180
+            #phi_LOS = (ang + self.yaw)-180
+            phi_LOS =ang-180
             return phi_LOS, dist
         
         if slave_id == 1:

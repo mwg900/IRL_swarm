@@ -14,7 +14,7 @@ class zigbee:
         self.ser = serial.Serial('/dev/Zigbee', 115200) #시리얼 통신용 변수. 115200의 baudrate를 가짐
         
         
-        self.r = rospy.Rate(10) # 10hz
+        self.r = rospy.Rate(5) # 10hz
         self.send_msg = "<1,2,3,4,5,6,7>"
     
         self.count = 0
